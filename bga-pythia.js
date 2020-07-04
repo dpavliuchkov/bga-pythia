@@ -1,16 +1,17 @@
 // ==UserScript==
-// @name         bga-pythia
+// @name         BGA Pythia - 7 Wonders game helper
+// @description  Visual aid for that shows which cards each player holds
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
+// @author       https://github.com/dpavliuchkov
 // @version      0.1
-// @description  Visual aid that shows which cards each player holds
 // @include      *boardgamearena.com/*
 // @grant        none
 // ==/UserScript==
 //
 // On boardgamearena.com, you can play an exciting board game of 7 wonders.
 // However, it is hard to remember which cards each player has. Pythia has
-// godlike powers and will help you remember which cards each player holds.
-// Works with greasemonkey or tampermonkey.
+// godlike powers and will share this information with you.
+// Works with Tampermonkey and Greasemonkey.
 // ==/UserScript==
 
 const Is_Inside_Game = /sevenwonders\?table=[0-9]*$/.test(window.location.href);
