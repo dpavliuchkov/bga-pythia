@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         BGA Pythia - 7 Wonders game helper
-// @description  Visual aid for that shows which cards each player holds
+// @description  Visual aid that shows which cards each player holds
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
 // @author       https://github.com/dpavliuchkov
 // @version      0.2
@@ -11,11 +11,11 @@
 // On boardgamearena.com, you can play an exciting board game of 7 wonders.
 // However, it is hard to remember which cards each player has. Pythia has
 // godlike powers and will share this information with you.
-// Works with Tampermonkey and Greasemonkey.
+// Works with Tampermonkey only.
 // ==/UserScript==
 
 // System variables - don't edit
-const Is_Inside_Game = /sevenwonders\?table=[0-9]*$/.test(window.location.href);
+const Is_Inside_Game = /\?table=[0-9]*/.test(window.location.href);
 const Cards_Image = 'https://x.boardgamearena.net/data/themereleases/current/games/sevenwonders/200213-1215/img/cards.jpg';
 const Player_Board_Id_Prefix = 'player_board_wrap_';
 const Player_Cards_Id_Prefix = 'pythia_cards_wrap_';
@@ -60,6 +60,11 @@ var pythia = {
                 Player_Board_Id_Prefix + this.playerOrder[i],
                 'last');
         }
+
+        this.dojo.subscribe("newHand", this, "readHand");
+        this.dojo.subscribe("newAge", this, "changeAge");
+        this.dojo.subscribe("cardsPlayed", this, "recordTurn");
+        this.dojo.subscribe("discard", this, "recordDiscard");
 
         if (Enable_Logging) console.log("PYTHIA: My eyes can see everything!");
         return this;
@@ -178,21 +183,16 @@ function isObjectEmpty(object) {
         (Object.keys(object).length === 0 && object.constructor === Object);
 }
 
-async function init() {
-    await sleep(3000); // Wait for BGA to load dojo and 7W scripts
-    if (Enable_Logging) console.log("PYTHIA: I have come to serve you");
-    window.parent.pythia = pythia.init();
-
-    var dojo = window.parent.dojo;
-
-    dojo.subscribe("newHand", pythia, "readHand");
-    dojo.subscribe("newAge", pythia, "changeAge");
-    dojo.subscribe("cardsPlayed", pythia, "recordTurn");
-    dojo.subscribe("discard", pythia, "recordDiscard");
-}
-
-window.onload = function() {
+// Everything starts here
+window.onload = async function() {
     if (Is_Inside_Game) {
-        init();
+        await sleep(3000); // Wait for BGA to load dojo and 7W scripts
+        if (window.parent.gameui.game_name != "sevenwonders") {
+            return;
+        }
+
+        if (Enable_Logging) console.log("PYTHIA: I have come to serve you");
+
+        window.parent.pythia = pythia.init();
     }
 };
