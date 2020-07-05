@@ -3,7 +3,7 @@
 // @description  Visual aid for that shows which cards each player holds
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
 // @author       https://github.com/dpavliuchkov
-// @version      0.1
+// @version      0.2
 // @include      *boardgamearena.com/*
 // @grant        none
 // ==/UserScript==
@@ -14,15 +14,24 @@
 // Works with Tampermonkey and Greasemonkey.
 // ==/UserScript==
 
+// System variables - don't edit
 const Is_Inside_Game = /sevenwonders\?table=[0-9]*$/.test(window.location.href);
 const Cards_Image = 'https://x.boardgamearena.net/data/themereleases/current/games/sevenwonders/200213-1215/img/cards.jpg';
-const Cards_Zoom = 0.6;
 const Player_Board_Id_Prefix = 'player_board_wrap_';
 const Player_Cards_Id_Prefix = 'pythia_cards_wrap_';
 const Player_Cards_Div_Class = 'pythia_cards_container';
-const CSS_Player_Cards_Div_Top = -30;
-const CSS_Player_Card_Height = 50;
+const Enable_Logging = false;
 
+// Styling variables - feel free to customize
+const CSS_Player_Cards_Div_Top = '-50px';
+const CSS_Player_Card_Zoom = 0.6;
+const CSS_Player_Card_Height = '80px';
+const CSS_Player_Card_Width = '128px';
+const CSS_Player_Card_Title_Top = '-25px';
+const CSS_Player_Card_Title_Font_Size = '18px';
+const CSS_Player_Card_Title_Font_Color = 'black';
+
+// Main Pythia object
 var pythia = {
     dojo: null,
     game: null,
@@ -47,18 +56,18 @@ var pythia = {
             }
             this.dojo.place('<div id="' + Player_Cards_Id_Prefix + this.playerOrder[i] + '"' +
                 ' class="' + Player_Cards_Div_Class + '"' +
-                ' style="position: absolute; left: 0; top: ' + CSS_Player_Cards_Div_Top + 'px;"></div>',
+                ' style="position: absolute; left: 0; top: ' + CSS_Player_Cards_Div_Top + ';"></div>',
                 Player_Board_Id_Prefix + this.playerOrder[i],
                 'last');
         }
 
-        console.log("PYTHIA: My eyes can see everything!");
+        if (Enable_Logging) console.log("PYTHIA: My eyes can see everything!");
         return this;
     },
 
     // Check what came to main player in the new hand
     readHand: function(data) {
-        console.log("PYTHIA: new hand - I got", data);
+        if (Enable_Logging) console.log("PYTHIA: new hand - I got", data);
         // Rotate old hands and render cards
         if (!this.isFirstTurn()) {
             this.passCards();
@@ -70,7 +79,7 @@ var pythia = {
 
     // Process all cards played by all players
     recordTurn: function(data) {
-        console.log("PYTHIA: cards played - I got", data);
+        if (Enable_Logging) console.log("PYTHIA: cards played - I got", data);
 
         // Delete played cards
         for (var cardId in data.args.cards) {
@@ -84,14 +93,14 @@ var pythia = {
 
     // If main player discarded - we know what card it was
     recordDiscard: function(data) {
-        console.log("PYTHIA: card discarded - I got", data);
+        if (Enable_Logging) console.log("PYTHIA: card discarded - I got", data);
         var player = data.channelorig.substring(9);
         delete this.playerHands[player][data.args.card_id];
     },
 
     // Cleanup things between ages
     changeAge: function(data) {
-        console.log("PYTHIA: new age - I got", data);
+        if (Enable_Logging) console.log("PYTHIA: new age - I got", data);
         this.currentAge++;
         const keys = Object.keys(this.playerHands);
         for (const key of keys) {
@@ -140,19 +149,21 @@ var pythia = {
                 var posY = -playedCard.backy;
                 cardsHTML +=
                     '<div class="stockitem  stockitem_unselectable"' +
-                    'style="zoom: ' + Cards_Zoom + '; background-position: ' + posX + 'px ' + posY + 'px;' +
-                    'top: 0px; left: ' + left + 'px; width: 128px; height: ' + CSS_Player_Card_Height + 'px;' +
+                    'style="zoom: ' + CSS_Player_Card_Zoom + '; background-position: ' + posX + 'px ' + posY + 'px;' +
+                    'top: 0px; left: ' + left + 'px; width: ' + CSS_Player_Card_Width + '; height: ' + CSS_Player_Card_Height + ';' +
                     ' background-image: url(' + Cards_Image + '); opacity: 1; border-width: 0px;">';
 
-                cardsHTML += '<span style="position: absolute; top: -25px; font-size: 18px;">' + playedCard.nametr + '</span></div>';
+                cardsHTML += '<span style="position: absolute; top: ' + CSS_Player_Card_Title_Top +
+                    '; font-size: ' + CSS_Player_Card_Title_Font_Size +
+                    '; color: ' + CSS_Player_Card_Title_Font_Color + ';">' + playedCard.nametr + '</span></div>';
 
-                left += 130;
+                left += parseInt(CSS_Player_Card_Width) + 2;
             }
             this.dojo.place(cardsHTML, Player_Cards_Id_Prefix + playerId, "only");
         }
     },
 
-    // Is this the first turn in the game?
+    // Is this the first turn of the age?
     isFirstTurn: function() {
         return isObjectEmpty(this.playerHands[this.mainPlayer]);
     },
@@ -169,7 +180,7 @@ function isObjectEmpty(object) {
 
 async function init() {
     await sleep(3000); // Wait for BGA to load dojo and 7W scripts
-    console.log("PYTHIA: I have come to serve you");
+    if (Enable_Logging) console.log("PYTHIA: I have come to serve you");
     window.parent.pythia = pythia.init();
 
     var dojo = window.parent.dojo;
