@@ -10,7 +10,7 @@
 //
 // On boardgamearena.com, you can play an exciting board game of 7 wonders.
 // However, it is hard to remember which cards each player has. Pythia has
-// godlike powers and will share this information with you. It will also 
+// godlike powers and will share this information with you. It will also
 // display total player's score based on the current shields situation.
 // Works with Tampermonkey only.
 // ==/UserScript==
@@ -23,6 +23,7 @@ const BGA_Player_Score_Id_Prefix = 'player_score_';
 const Player_Cards_Id_Prefix = 'pythia_cards_wrap_';
 const Player_Score_Id_Prefix = 'pythia_score_';
 const Player_Cards_Div_Class = 'pythia_cards_container';
+const Player_Score_Span_Class = 'pythia_score';
 const Enable_Logging = false;
 
 // Styling variables - feel free to customize
@@ -36,7 +37,7 @@ const CSS_Player_Card_Title_Font_Color = 'black';
 
 // Main Pythia object
 var pythia = {
-    isStarted : false,
+    isStarted: false,
     dojo: null,
     game: null,
     mainPlayer: null,
@@ -84,6 +85,7 @@ var pythia = {
         this.dojo.subscribe("discard", this, "recordDiscard");
         this.dojo.subscribe("wonderBuild", this, "recordWonderStage");
         this.dojo.subscribe("updateScore", this, "recordScoreUpdate");
+        this.dojo.subscribe("warVictory", this, "recordWarResults");
 
         if (Enable_Logging) console.log("PYTHIA: My eyes can see everything!");
         return this;
@@ -159,6 +161,15 @@ var pythia = {
         for (const playerId of scores) {
             this.players[playerId].score = data.args.scores[playerId];
             this.renderPlayerScore(playerId);
+        }
+    },
+
+    // If this is the last war - do cleanup
+    recordWarResults: function(data) {
+        if (Enable_Logging) console.log("PYTHIA: war battle happened - I got", data);
+
+        if (this.currentAge == 3) {
+            this.dojo.query('.' + Player_Score_Span_Class).style('display', 'none');
         }
     },
 
@@ -264,7 +275,8 @@ var pythia = {
         // Insert war score container
         if (!this.dojo.byId(Player_Score_Id_Prefix + playerId)) {
             this.dojo.place(
-                '<span id="' + Player_Score_Id_Prefix + playerId + '" class="player_score_value"></span>',
+                '<span id="' + Player_Score_Id_Prefix + playerId + '"' +
+                'class="player_score_value ' + Player_Score_Span_Class + '"></span>',
                 BGA_Player_Score_Id_Prefix + playerId,
                 'after');
         }
