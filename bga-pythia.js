@@ -3,7 +3,7 @@
 // @description  Visual aid that shows which cards each player holds, and how war affects the scores
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
 // @author       https://github.com/dpavliuchkov
-// @version      0.3
+// @version      0.4
 // @include      *boardgamearena.com/*
 // @grant        none
 // ==/UserScript==
@@ -12,6 +12,7 @@
 // However, it is hard to remember which cards each player has. Pythia has
 // godlike powers and will share this information with you. It will also
 // display total player's score based on the current shields situation.
+// And it will mark leader and runner up players and their boards.
 // Works with Tampermonkey only.
 // ==/UserScript==
 
@@ -24,16 +25,24 @@ const Player_Cards_Id_Prefix = 'pythia_cards_wrap_';
 const Player_Score_Id_Prefix = 'pythia_score_';
 const Player_Cards_Div_Class = 'pythia_cards_container';
 const Player_Score_Span_Class = 'pythia_score';
+const Player_Leader_Class = 'pythia_leader';
+const Player_Runnerup_Class = 'pythia_runnerup';
+const War_Points_Per_Age = {
+    1: 1,
+    2: 3,
+    3: 5
+};
 const Enable_Logging = false;
 
 // Styling variables - feel free to customize
-const CSS_Player_Cards_Div_Top = '-20px';
+const CSS_Player_Cards_Div_Height = '50px';
 const CSS_Player_Card_Zoom = 0.6;
-const CSS_Player_Card_Height = '50px';
+const CSS_Player_Card_Height = '45px';
 const CSS_Player_Card_Width = '128px';
 const CSS_Player_Card_Title_Top = '-25px';
 const CSS_Player_Card_Title_Font_Size = '18px';
 const CSS_Player_Card_Title_Font_Color = 'black';
+
 
 // Main Pythia object
 var pythia = {
@@ -58,8 +67,9 @@ var pythia = {
             var playerId = playerOrder[i];
             this.players[playerId] = {
                 hand: {},
+                coins: 3,
                 shields: 0,
-                score: 1,
+                bgaScore: 1,
                 warScore: 0,
                 wonder: this.game.players[playerId].wonder
             };
@@ -79,20 +89,23 @@ var pythia = {
             this.renderPythiaContainers(playerId);
         }
 
-        this.dojo.subscribe("newHand", this, "readHand");
-        this.dojo.subscribe("newAge", this, "changeAge");
+        this.dojo.subscribe("newHand", this, "recordHand");
         this.dojo.subscribe("cardsPlayed", this, "recordTurn");
+        this.dojo.subscribe("coinDelta", this, "recordCoins");
         this.dojo.subscribe("discard", this, "recordDiscard");
         this.dojo.subscribe("wonderBuild", this, "recordWonderStage");
         this.dojo.subscribe("updateScore", this, "recordScoreUpdate");
         this.dojo.subscribe("warVictory", this, "recordWarResults");
+        this.dojo.subscribe("newAge", this, "changeAge");
+
+        this.setStyles();
 
         if (Enable_Logging) console.log("PYTHIA: My eyes can see everything!");
         return this;
     },
 
     // Check what came to main player in the new hand
-    readHand: function(data) {
+    recordHand: function(data) {
         if (Enable_Logging) console.log("PYTHIA: new hand - I got", data);
 
         // Rotate old hands and render cards
@@ -102,6 +115,9 @@ var pythia = {
         }
         // Save new hand to main player
         this.players[this.mainPlayer].hand = data.args.cards;
+
+        // Update leader & runnerup positions
+        this.renderLeaderRunnerup();
     },
 
     // Process all cards played by all players
@@ -132,6 +148,13 @@ var pythia = {
         }
     },
 
+    recordCoins: function(data) {
+        if (Enable_Logging) console.log("PYTHIA: coins changed - I got", data);
+
+        //  debugger;
+        this.players[data.args.player_id].coins += data.args.coinddelta;
+    },
+
     // If main player discarded - we know what card it was
     recordDiscard: function(data) {
         if (Enable_Logging) console.log("PYTHIA: card discarded - I got", data);
@@ -159,7 +182,7 @@ var pythia = {
 
         const scores = Object.keys(data.args.scores);
         for (const playerId of scores) {
-            this.players[playerId].score = data.args.scores[playerId];
+            this.players[playerId].bgaScore = data.args.scores[playerId];
             this.renderPlayerScore(playerId);
         }
     },
@@ -169,7 +192,16 @@ var pythia = {
         if (Enable_Logging) console.log("PYTHIA: war battle happened - I got", data);
 
         if (this.currentAge == 3) {
+            // Hide Pythia scores
             this.dojo.query('.' + Player_Score_Span_Class).style('display', 'none');
+
+            // Remove Pythia leader & runnerup notation
+            if (this.dojo.query('.' + Player_Leader_Class)[0]) {
+                this.dojo.removeClass(this.dojo.query('.' + Player_Leader_Class)[0].id, Player_Leader_Class);
+            }
+            if (this.dojo.query('.' + Player_Runnerup_Class)[0]) {
+                this.dojo.removeClass(this.dojo.query('.' + Player_Runnerup_Class)[0].id, Player_Runnerup_Class);
+            }
         }
     },
 
@@ -216,6 +248,7 @@ var pythia = {
             // Clean player hands and update total scores
             this.players[playerId].hand = {};
             this.renderPlayerScore(playerId);
+            this.renderLeaderRunnerup();
         }
 
         // Clean rendered cards from previous age
@@ -224,17 +257,7 @@ var pythia = {
 
     // Add war scores based on the age
     increaseWarScore: function(playerId, age) {
-        switch (age) {
-            case 1:
-                this.players[playerId].warScore += 1;
-                break;
-            case 2:
-                this.players[playerId].warScore += 3;
-                break;
-            case 3:
-                this.players[playerId].warScore += 5;
-                break;
-        }
+        this.players[playerId].warScore += War_Points_Per_Age[age];
     },
     // Decrase war scores
     decreaseWarScore: function(playerId, age) {
@@ -243,29 +266,15 @@ var pythia = {
 
     // Move cards unplayed cards between players
     passCards: function() {
-        if (this.currentAge == 2) {
-            this.passCardsLeft();
-        } else {
-            this.passCardsRight();
-        }
-    },
-    passCardsLeft: function() {
+        // This should be counter to age direction, because
+        // Pythia always passes starting from the last player
+        var direction = this.currentAge == 2 ? 'right' : 'left';
         var currentPlayerId = this.mainPlayer;
         var i = 0;
         while (i < this.playersCount) {
-            var rightPlayerId = this.players[currentPlayerId].right;
-            this.players[rightPlayerId].hand = this.players[this.players[rightPlayerId].right].hand;
-            currentPlayerId = rightPlayerId;
-            i++;
-        }
-    },
-    passCardsRight: function() {
-        var currentPlayerId = this.mainPlayer;
-        var i = 0;
-        while (i < this.playersCount) {
-            var leftPlayerId = this.players[currentPlayerId].left;
-            this.players[leftPlayerId].hand = this.players[this.players[leftPlayerId].left].hand;
-            currentPlayerId = leftPlayerId;
+            var neighborId = this.players[currentPlayerId][direction];
+            this.players[neighborId].hand = this.players[this.players[neighborId][direction]].hand;
+            currentPlayerId = neighborId;
             i++;
         }
     },
@@ -287,9 +296,9 @@ var pythia = {
         }
         this.dojo.place('<div id="' + Player_Cards_Id_Prefix + playerId + '"' +
             ' class="' + Player_Cards_Div_Class + '"' +
-            ' style="position: absolute; left: 0; top: ' + CSS_Player_Cards_Div_Top + ';"></div>',
+            ' style="height: ' + CSS_Player_Cards_Div_Height + ';"></div>',
             BGA_Player_Board_Id_Prefix + playerId,
-            'last');
+            'first');
     },
 
     // Render player hands
@@ -301,7 +310,7 @@ var pythia = {
             }
 
             var cardsHTML = '';
-            var left = 0;
+            var left = 7;
             for (var card in this.players[playerId].hand) {
                 var playedCard = this.game.card_types[this.players[playerId].hand[card].type];
                 var posX = -playedCard.backx;
@@ -309,7 +318,7 @@ var pythia = {
                 cardsHTML +=
                     '<div class="stockitem  stockitem_unselectable"' +
                     'style="zoom: ' + CSS_Player_Card_Zoom + '; background-position: ' + posX + 'px ' + posY + 'px;' +
-                    'top: 0px; left: ' + left + 'px; width: ' + CSS_Player_Card_Width + '; height: ' + CSS_Player_Card_Height + ';' +
+                    'top: 25px; left: ' + left + 'px; width: ' + CSS_Player_Card_Width + '; height: ' + CSS_Player_Card_Height + ';' +
                     ' background-image: url(' + Cards_Image + '); opacity: 1; border-width: 0px;">';
 
                 cardsHTML += '<span style="position: absolute; top: ' + CSS_Player_Card_Title_Top +
@@ -324,14 +333,53 @@ var pythia = {
 
     // Update total player score
     renderPlayerScore: function(playerId, score = 0) {
-        const totalScore = this.players[playerId].score + this.players[playerId].warScore;
+        const totalScore = this.players[playerId].bgaScore + this.players[playerId].warScore;
         this.dojo.byId(Player_Score_Id_Prefix + playerId).innerHTML = " (" + totalScore + ")";
     },
 
+    renderLeaderRunnerup: function() {
+        // Clean previous leader & runnerup - fucked up way, but no idea how to make it nicer
+        if (this.dojo.query('.' + Player_Leader_Class)[0]) {
+            this.dojo.removeClass(this.dojo.query('.' + Player_Leader_Class)[0].id, Player_Leader_Class);
+        }
+        if (this.dojo.query('.' + Player_Runnerup_Class)[0]) {
+            this.dojo.removeClass(this.dojo.query('.' + Player_Runnerup_Class)[0].id, Player_Runnerup_Class);
+        }
+
+        // Find leader and runner ups
+        var totalScores = [];
+        const keys = Object.keys(this.players);
+        for (const playerId of keys) {
+            totalScores.push(
+                [playerId,
+                    this.players[playerId].bgaScore + this.players[playerId].warScore,
+                    this.players[playerId].coins
+                ]);
+        }
+
+        totalScores.sort(function(a, b) {
+            return b[1] - a[1] || b[2] - a[2];;
+        });
+
+        // Mark new ones
+        this.dojo.addClass(BGA_Player_Board_Id_Prefix + totalScores[0][0], Player_Leader_Class);
+        this.dojo.addClass(BGA_Player_Board_Id_Prefix + totalScores[1][0], Player_Runnerup_Class);
+    },
     // Is this the first turn of the age?
     isFirstTurn: function() {
         return isObjectEmpty(this.players[this.mainPlayer].hand);
     },
+    setStyles: function() {
+        this.dojo.place(
+            '<style type="text/css" id="Pythia_Styles">' +
+            '.sw_coins { top: 50px; } ' +
+            '#player_board_wrap_' + this.mainPlayer + ' .sw_coins { top: 0px; } ' +
+            '.' + Player_Leader_Class + " { border: 5px solid green; } " +
+            '.' + Player_Leader_Class + " h3::before { content: '(Leader) '; color: green; float: left; margin-top: -4px; white-space: pre; }" +
+            '.' + Player_Runnerup_Class + " { border: 5px solid red; } " +
+            '.' + Player_Runnerup_Class + " h3::before { content: '(Runner up) '; color: red; float: left; margin-top: -4px; white-space: pre; }" +
+            '</style>', 'sevenwonder_wrap', 'last');
+    }
 };
 
 function sleep(ms) {
