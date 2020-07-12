@@ -71,7 +71,7 @@ var pythia = {
                 shields: 0,
                 bgaScore: 1,
                 warScore: 0,
-                wonder: this.game.players[playerId].wonder
+                wonder: 0
             };
 
             // Identify who sits to the left and to the right
@@ -89,16 +89,17 @@ var pythia = {
             this.renderPythiaContainers(playerId);
         }
 
+        this.setStyles();
+
         this.dojo.subscribe("newHand", this, "recordHand");
         this.dojo.subscribe("cardsPlayed", this, "recordTurn");
         this.dojo.subscribe("coinDelta", this, "recordCoins");
         this.dojo.subscribe("discard", this, "recordDiscard");
+        this.dojo.subscribe("newWonders", this, "recordWonderChoice");
         this.dojo.subscribe("wonderBuild", this, "recordWonderStage");
         this.dojo.subscribe("updateScore", this, "recordScoreUpdate");
         this.dojo.subscribe("warVictory", this, "recordWarResults");
         this.dojo.subscribe("newAge", this, "changeAge");
-
-        this.setStyles();
 
         if (Enable_Logging) console.log("PYTHIA: My eyes can see everything!");
         return this;
@@ -173,6 +174,16 @@ var pythia = {
         if (this.game.wonders[wonderId].stages[stage].shield) {
             this.players[playerId].shields += this.game.wonders[wonderId].stages[stage].shield;
             this.calculateWarScores();
+        }
+    },
+
+    // Record which wonder each player has chosen
+    recordWonderChoice : function(data) {
+        if (Enable_Logging) console.log("PYTHIA: wonders chosen - I got", data);
+
+        const wonders = Object.keys(data.args.wonders);
+        for (const playerId of wonders) {
+            this.players[playerId].wonder = data.args.wonders[playerId];
         }
     },
 
