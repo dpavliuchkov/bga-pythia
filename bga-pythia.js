@@ -3,7 +3,7 @@
 // @description  Visual aid that extends BGA game interface with useful information
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
 // @author       https://github.com/dpavliuchkov
-// @version      0.5
+// @version      0.6
 // @include      *boardgamearena.com/*
 // @grant        none
 // ==/UserScript==
@@ -84,6 +84,17 @@ var pythia = {
         var playerOrder = this.game.playerorder;
         this.playersCount = playerOrder.length;
         this.mainPlayer = playerOrder[0];
+        // local storage stores value as strings, so we need to parse "false" and "true" to get boolean
+        this.settings = {
+            'enableRecordCards': localStorage.getItem('pythia-seetings-recordcards') === null ?
+                true : String(localStorage.getItem('pythia-seetings-recordcards')) == "true",
+            'enableWarScores': localStorage.getItem('pythia-seetings-warscores') === null ?
+                true : String(localStorage.getItem('pythia-seetings-warscores')) == "true",
+            'enableLeaderRunnerupPositions': localStorage.getItem('pythia-seetings-leaderrunnerup') === null ?
+                true : String(localStorage.getItem('pythia-seetings-leaderrunnerup')) == "true",
+            'enableCardPoints': localStorage.getItem('pythia-seetings-cardpoints') === null ?
+                true : String(localStorage.getItem('pythia-seetings-cardpoints')) == "true",
+        };
 
         for (var i = 0; i < this.playersCount; i++) {
             var playerId = playerOrder[i];
@@ -122,8 +133,16 @@ var pythia = {
             this.renderPythiaContainers(playerId);
         }
 
+        this.renderPythiaMenu();
         this.setStyles();
 
+        // Configure Pythia according to settings
+        this.togglePythiaSettingPlayerCardsDisplay(this.settings.enableRecordCards);
+        this.togglePythiaSettingWarScoresDisplay(this.settings.enableWarScores);
+        this.togglePythiaSettingLeaderRunnerupDisplay(this.settings.enableLeaderRunnerupPositions);
+        this.togglePythiaSettingCardPointsDisplay(this.settings.enableCardPoints);
+
+        // Connect event handlers to follow game progress
         this.dojo.subscribe("newHand", this, "recordHand");
         this.dojo.subscribe("cardsPlayed", this, "recordTurn");
         this.dojo.subscribe("coinDelta", this, "recordCoins");
@@ -294,12 +313,8 @@ var pythia = {
             this.dojo.query("." + Player_Score_Span_Class).style("display", "none");
 
             // Remove Pythia leader & runnerup notation
-            if (this.dojo.query("." + Player_Leader_Class)[0]) {
-                this.dojo.removeClass(this.dojo.query("." + Player_Leader_Class)[0].id, Player_Leader_Class);
-            }
-            if (this.dojo.query("." + Player_Runnerup_Class)[0]) {
-                this.dojo.removeClass(this.dojo.query("." + Player_Runnerup_Class)[0].id, Player_Runnerup_Class);
-            }
+            this.dojo.query("." + Player_Leader_Class + ", ." + Player_Runnerup_Class)
+                .removeClass([Player_Leader_Class, Player_Runnerup_Class]);
         }
     },
 
@@ -437,13 +452,13 @@ var pythia = {
 
     // Add border and position of leader and runnerup players
     renderLeaderRunnerup: function() {
-        // Clean previous leader & runnerup - fucked up way, but no idea how to make it nicer
-        if (this.dojo.query("." + Player_Leader_Class)[0]) {
-            this.dojo.removeClass(this.dojo.query("." + Player_Leader_Class)[0].id, Player_Leader_Class);
+        if (!this.settings.enableLeaderRunnerupPositions) {
+            return;
         }
-        if (this.dojo.query("." + Player_Runnerup_Class)[0]) {
-            this.dojo.removeClass(this.dojo.query("." + Player_Runnerup_Class)[0].id, Player_Runnerup_Class);
-        }
+
+        // Clean previous leader & runnerup
+        this.dojo.query("." + Player_Leader_Class + ", ." + Player_Runnerup_Class)
+            .removeClass([Player_Leader_Class, Player_Runnerup_Class]);
 
         // Find leader and runner ups
         var totalScores = [];
@@ -476,21 +491,151 @@ var pythia = {
         const containerId = Card_Points_Worth_Id_Prefix + cardId;
         this.dojo.destroy(containerId);
 
-        const html = "<span id='" + containerId + "' class='" + Card_Points_Worth_Class + "'>" +
+        const displayStyle = this.settings.enableCardPoints ? "block" : "none";
+        const html = "<span id='" + containerId + "' class='" + Card_Points_Worth_Class + "'" +
+            "style='display:" + displayStyle + ";'>" +
             "<img src='" + Victory_Points_Image[pointsWorth] + "' /></span>";
         this.dojo.place(html, "cardmenu_" + cardId, "after");
+    },
+
+    // Render Pythia menu
+    renderPythiaMenu: function() {
+        var menuHtml = "<div id='pythia_menu'>";
+        menuHtml += "<div class='menu_header'><h3>PYTHIA</h3></div>";
+
+        // Player cards setting
+        menuHtml += "<div id='pythia_menu_playercards' class='menu_item'><span class='title'>Player Cards:</span>";
+        menuHtml += "<span class='status'>Enabled</span><button type='button'>Disable</button></div>";
+
+        // War scores setting
+        menuHtml += "<div id='pythia_menu_warscores' class='menu_item'><span class='title'>War Scores:</span>";
+        menuHtml += "<span class='status'>Enabled</span><button type='button'>Disable</button></div>";
+
+        // Leader Runnerup setting
+        menuHtml += "<div id='pythia_menu_leaderrunnerup' class='menu_item'><span class='title'>Leader Runnerup:</span>";
+        menuHtml += "<span class='status'>Enabled</span><button type='button'>Disable</button></div>";
+
+        // Card Points setting
+        menuHtml += "<div id='pythia_menu_cardpoints' class='menu_item'><span class='title'>Guild Points:</span>";
+        menuHtml += "<span class='status'>Enabled</span><button type='button'>Disable</button></div>";
+
+        menuHtml += "</div>";
+        this.dojo.place(menuHtml, "sevenwonder_wrap", "last");
+
+        // Set correct texts based on settings
+        this.togglePythiaSettingText("pythia_menu_playercards", this.settings.enableRecordCards);
+        this.togglePythiaSettingText("pythia_menu_warscores", this.settings.enableWarScores);
+        this.togglePythiaSettingText("pythia_menu_leaderrunnerup", this.settings.enableLeaderRunnerupPositions);
+        this.togglePythiaSettingText("pythia_menu_cardpoints", this.settings.enableCardPoints);
+
+        // Connect event handlers
+        this.dojo.connect(this.dojo.query("button", "pythia_menu_playercards")[0], "onclick", this, "togglePythiaSettingPlayerCards");
+        this.dojo.connect(this.dojo.query("button", "pythia_menu_warscores")[0], "onclick", this, "togglePythiaSettingWarScores");
+        this.dojo.connect(this.dojo.query("button", "pythia_menu_leaderrunnerup")[0], "onclick", this, "togglePythiaSettingLeaderRunnerup");
+        this.dojo.connect(this.dojo.query("button", "pythia_menu_cardpoints")[0], "onclick", this, "togglePythiaSettingCardPoints");
+    },
+
+    // Enable or disable display of cards in player hands
+    togglePythiaSettingPlayerCards: function(event) {
+        this.settings.enableRecordCards = !this.settings.enableRecordCards;
+        localStorage.setItem('pythia-seetings-recordcards', this.settings.enableRecordCards);
+        this.togglePythiaSettingPlayerCardsDisplay(this.settings.enableRecordCards);
+        this.togglePythiaSettingText(event.target.parentNode.id, this.settings.enableRecordCards);
+    },
+    togglePythiaSettingPlayerCardsDisplay: function(pleaseShow) {
+        if (pleaseShow) {
+            this.dojo.query("." + Player_Cards_Div_Class).style("display", "block");
+            this.dojo.query(".sw_coins", "boardspaces").addClass('pythia_enabled');
+        } else {
+            this.dojo.query("." + Player_Cards_Div_Class).style("display", "none");
+            this.dojo.query(".sw_coins", "boardspaces").removeClass('pythia_enabled');
+        }
+    },
+
+    // Enable or disable display of war scores
+    togglePythiaSettingWarScores: function(event) {
+        this.settings.enableWarScores = !this.settings.enableWarScores;
+        localStorage.setItem('pythia-seetings-warscores', this.settings.enableWarScores);
+        this.togglePythiaSettingWarScoresDisplay(this.settings.enableWarScores);
+        this.togglePythiaSettingText(event.target.parentNode.id, this.settings.enableWarScores);
+    },
+    togglePythiaSettingWarScoresDisplay: function(pleaseShow) {
+        if (pleaseShow) {
+            this.dojo.query("." + Player_Score_Span_Class).style("display", "inline");
+        } else {
+            this.dojo.query("." + Player_Score_Span_Class).style("display", "none");
+        }
+    },
+
+    // Enable or disable display of leader and runnerup positions
+    togglePythiaSettingLeaderRunnerup: function(event) {
+        this.settings.enableLeaderRunnerupPositions = !this.settings.enableLeaderRunnerupPositions;
+        localStorage.setItem('pythia-seetings-leaderrunnerup', this.settings.enableLeaderRunnerupPositions);
+        this.togglePythiaSettingLeaderRunnerupDisplay(this.settings.enableLeaderRunnerupPositions);
+        this.togglePythiaSettingText(event.target.parentNode.id, this.settings.enableLeaderRunnerupPositions);
+    },
+    togglePythiaSettingLeaderRunnerupDisplay: function(pleaseShow) {
+        if (pleaseShow) {
+            this.renderLeaderRunnerup();
+        } else {
+            this.dojo.query("." + Player_Leader_Class + ", ." + Player_Runnerup_Class)
+                .removeClass([Player_Leader_Class, Player_Runnerup_Class]);
+        }
+    },
+
+    // Enable or disable display of cards points worth
+    togglePythiaSettingCardPoints: function(event) {
+        this.settings.enableCardPoints = !this.settings.enableCardPoints;
+        localStorage.setItem('pythia-seetings-cardpoints', this.settings.enableCardPoints);
+        this.togglePythiaSettingCardPointsDisplay(this.settings.enableCardPoints);
+        this.togglePythiaSettingText(event.target.parentNode.id, this.settings.enableCardPoints);
+    },
+    togglePythiaSettingCardPointsDisplay: function(pleaseShow) {
+        if (pleaseShow) {
+            this.dojo.query("." + Card_Points_Worth_Class).style("display", "block");
+        } else {
+            this.dojo.query("." + Card_Points_Worth_Class).style("display", "none");
+        }
+    },
+
+    // Switch enable/disable text in Pythia settings
+    togglePythiaSettingText: function(parentId, isEnabled) {
+        if (isEnabled) {
+            this.dojo.query(".status", parentId)
+                .addClass('enabled')
+                .removeClass('disabled')[0]
+                .innerHTML = "Enabled";
+            this.dojo.query("button", parentId)[0].innerHTML = "Disable";
+        } else {
+            this.dojo.query(".status", parentId)
+                .addClass('disabled')
+                .removeClass('enabled')[0]
+                .innerHTML = "Disabled";
+            this.dojo.query("button", parentId)[0].innerHTML = "Enable";
+        }
     },
 
     // Is this the first turn of the age?
     isFirstTurn: function() {
         return isObjectEmpty(this.players[this.mainPlayer].hand);
     },
+
+    // Set Pythia CSS styles
     setStyles: function() {
         this.dojo.place(
             "<style type='text/css' id='Pythia_Styles'>" +
-            ".sw_coins { top: 50px; } " +
+            ".sw_coins.pythia_enabled { top: 50px; } " +
             "#player_board_wrap_" + this.mainPlayer + " .sw_coins { top: 0px; } " +
             "#player_hand_wrap { padding-top: 52px; } " +
+            "#pythia_menu { position: absolute; top: 10px; right: 50px; } " +
+            "#pythia_menu .menu_header { margin-bottom: 5px; } " +
+            "#pythia_menu .menu_header h3 { display: inline; } " +
+            "#pythia_menu .menu_item { height: 23px; } " +
+            "#pythia_menu .menu_item span.title { width: 140px; display: inline-block;} " +
+            "#pythia_menu .menu_item span.status { text-align: center; width: 60px; display: inline-block; } " +
+            "#pythia_menu .menu_item span.status.enabled { color: green; } " +
+            "#pythia_menu .menu_item span.status.disabled { color: red; } " +
+            "#pythia_menu .menu_item button { width: 60px; padding: 3px; border-radius: 5px; margin-left: 10px; } " +
             "." + Player_Leader_Class + " { border: 5px solid green; } " +
             "." + Player_Leader_Class + " h3::before { content: '(Leader) '; color: green; float: left; margin-top: -4px; white-space: pre; }" +
             "." + Player_Runnerup_Class + " { border: 5px solid red; } " +
