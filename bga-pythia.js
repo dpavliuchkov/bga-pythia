@@ -3,7 +3,7 @@
 // @description  Visual aid that extends BGA game interface with useful information
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
 // @author       https://github.com/dpavliuchkov
-// @version      0.6
+// @version      0.7
 // @include      *boardgamearena.com/*
 // @grant        none
 // ==/UserScript==
@@ -13,7 +13,7 @@
 // godlike powers and will share this information with you. It will also
 // display total player's score based on the current shields situation.
 // And it will mark leader and runner up players and their boards. And
-// Pythia will calculate how much each guild is worth to you.
+// Pythia will calculate how much points and coins some cards are worth to you.
 // Works with Tampermonkey only.
 // ==/UserScript==
 
@@ -22,8 +22,9 @@ const Is_Inside_Game = /\?table=[0-9]*/.test(window.location.href);
 const Cards_Image = "https://x.boardgamearena.net/data/themereleases/current/games/sevenwonders/200213-1215/img/cards.jpg";
 const BGA_Player_Board_Id_Prefix = "player_board_wrap_";
 const BGA_Player_Score_Id_Prefix = "player_score_";
-const Card_Points_Worth_Id_Prefix = "pythia_card_worth_container_";
-const Card_Points_Worth_Class = "pythia_card_worth";
+const Card_Worth_Id_Prefix = "pythia_card_worth_container_";
+const Card_Worth_Class = "pythia_card_worth";
+const Card_Worth_Coins_Class = "pythia_card_coins_worth";
 const Player_Cards_Id_Prefix = "pythia_cards_wrap_";
 const Player_Score_Id_Prefix = "pythia_score_";
 const Player_Cards_Div_Class = "pythia_cards_container";
@@ -54,6 +55,23 @@ const Victory_Points_Image = {
     13: "https://github.com/dpavliuchkov/bga-pythia/blob/master/images/13%20points.png?raw=true",
     14: "https://github.com/dpavliuchkov/bga-pythia/blob/master/images/14%20points.png?raw=true",
 };
+const Coins_Image = {
+    0: "https://github.com/dpavliuchkov/bga-pythia/blob/master/images/0%20coins.png?raw=true",
+    1: "https://github.com/dpavliuchkov/bga-pythia/blob/master/images/1%20coin.png?raw=true",
+    2: "https://github.com/dpavliuchkov/bga-pythia/blob/master/images/2%20coins.png?raw=true",
+    3: "https://github.com/dpavliuchkov/bga-pythia/blob/master/images/3%20coins.png?raw=true",
+    4: "https://github.com/dpavliuchkov/bga-pythia/blob/master/images/4%20coins.png?raw=true",
+    5: "https://github.com/dpavliuchkov/bga-pythia/blob/master/images/5%20coins.png?raw=true",
+    6: "https://github.com/dpavliuchkov/bga-pythia/blob/master/images/6%20coins.png?raw=true",
+    7: "https://github.com/dpavliuchkov/bga-pythia/blob/master/images/7%20coins.png?raw=true",
+    8: "https://github.com/dpavliuchkov/bga-pythia/blob/master/images/8%20coins.png?raw=true",
+    9: "https://github.com/dpavliuchkov/bga-pythia/blob/master/images/9%20coins.png?raw=true",
+    10: "https://github.com/dpavliuchkov/bga-pythia/blob/master/images/10%20coins.png?raw=true",
+    11: "https://github.com/dpavliuchkov/bga-pythia/blob/master/images/11%20coins.png?raw=true",
+    12: "https://github.com/dpavliuchkov/bga-pythia/blob/master/images/12%20coins.png?raw=true",
+    13: "https://github.com/dpavliuchkov/bga-pythia/blob/master/images/13%20coins.png?raw=true",
+    14: "https://github.com/dpavliuchkov/bga-pythia/blob/master/images/14%20coins.png?raw=true",
+};
 const Enable_Logging = false;
 
 // Styling variables - feel free to customize
@@ -79,6 +97,12 @@ var pythia = {
     // Init Pythia
     init: function() {
         this.isStarted = true;
+        // Check if the site was loaded correctly
+        if (!window.parent || !window.parent.dojo || !window.parent.gameui.gamedatas
+            || !window.parent.gameui.gamedatas.playerorder || !window.parent.gameui.gamedatas.playerorder[0]
+            || !window.parent.gameui.gamedatas.card_types || !window.parent.gameui.gamedatas.wonders) {
+            return;
+        }
         this.dojo = window.parent.dojo;
         this.game = window.parent.gameui.gamedatas;
         var playerOrder = this.game.playerorder;
@@ -161,6 +185,11 @@ var pythia = {
     recordHand: function(data) {
         if (Enable_Logging) console.log("PYTHIA: new hand - I got", data);
 
+        // Input check
+        if (!data || !data.args || !data.args.cards) {
+            return;
+        } 
+
         // Rotate old hands and render cards
         if (!this.isFirstTurn()) {
             this.passCards();
@@ -169,8 +198,8 @@ var pythia = {
         // Save new hand to main player
         this.players[this.mainPlayer].hand = data.args.cards;
 
-        // Calculate worth of guilds in victory points
-        if (this.currentAge == 3) {
+        // Calculate worth of some cards in victory points and coins
+        if (this.currentAge == 2 || this.currentAge == 3) {
             // Cycle all cards in hand
             for (var cardId in data.args.cards) {
                 const playedCard = data.args.cards[cardId];
@@ -178,7 +207,19 @@ var pythia = {
                 const rightPlayerId = this.players[this.mainPlayer].right;
 
                 var pointsWorth = null;
+                var coinsWorth = null;
                 switch (parseInt(playedCard.type)) {
+                    // Age 2 commerce
+                    case 41: // Vineyard - coins for brown cards
+                        coinsWorth = this.players[leftPlayerId].playedCards["raw"] + this.players[rightPlayerId].playedCards["raw"]
+                        + this.players[this.mainPlayer].playedCards["raw"];
+                        break;
+                    case 42: // Bazaar - coins for grey cards
+                        coinsWorth = (this.players[leftPlayerId].playedCards["man"] + this.players[rightPlayerId].playedCards["man"]
+                        + this.players[this.mainPlayer].playedCards["man"]) * 2;
+                        break;
+
+                    // Age 3 guilds
                     case 51: // Workers guild - brown cards
                         pointsWorth = this.players[leftPlayerId].playedCards["raw"] + this.players[rightPlayerId].playedCards["raw"];
                         break;
@@ -198,17 +239,36 @@ var pythia = {
                         pointsWorth = this.players[leftPlayerId].defeats + this.players[rightPlayerId].defeats;
                         break;
                     case 57: // Shipowners guild - own brown grey purple cards
-                        pointsWorth = this.players[this.mainPlayer].playedCards["raw"] + this.players[this.mainPlayer].playedCards["man"] +
-                            this.players[this.mainPlayer].playedCards["gui"] + 1;
+                        pointsWorth = this.players[this.mainPlayer].playedCards["raw"] + this.players[this.mainPlayer].playedCards["man"]
+                            + this.players[this.mainPlayer].playedCards["gui"] + 1;
                         break;
                     case 59: // Magistrate guild - blue cards
                         pointsWorth = this.players[leftPlayerId].playedCards["civ"] + this.players[rightPlayerId].playedCards["civ"];
                         break;
                     case 60: // Builds guild - wonder stages]
-                        pointsWorth = this.players[this.mainPlayer].wonderStages + this.players[leftPlayerId].wonderStages + this.players[rightPlayerId].wonderStages;
+                        pointsWorth = this.players[this.mainPlayer].wonderStages + this.players[leftPlayerId].wonderStages
+                            + this.players[rightPlayerId].wonderStages;
+                        break;
+
+                    // Age 3 commerce
+                    case 66: // Haven - coins and points for own brown cards
+                        coinsWorth = this.players[this.mainPlayer].playedCards["raw"];
+                        pointsWorth = this.players[this.mainPlayer].playedCards["raw"];
+                        break;
+                    case 67: // Lighthouse - coins and points for own yellow cards
+                        coinsWorth = this.players[this.mainPlayer].playedCards["com"] + 1;
+                        pointsWorth = this.players[this.mainPlayer].playedCards["com"] + 1;
+                        break;
+                    case 68: // Chamber of commerce - coins and points for own grey cards
+                        coinsWorth = this.players[this.mainPlayer].playedCards["man"] * 2;
+                        pointsWorth = this.players[this.mainPlayer].playedCards["man"] * 2;
+                        break;
+                    case 69: // Arena - coins and points for own wonder stages
+                        coinsWorth = this.players[rightPlayerId].wonderStages * 3;
+                        pointsWorth = this.players[rightPlayerId].wonderStages;
                         break;
                 }
-                this.renderCardPoints(cardId, pointsWorth);
+                this.renderCardPoints(cardId, pointsWorth, coinsWorth);
             }
         }
 
@@ -220,6 +280,11 @@ var pythia = {
     recordTurn: function(data) {
         if (Enable_Logging) console.log("PYTHIA: cards played - I got", data);
 
+        // Input check
+        if (!data || !data.args || !data.args.cards) {
+            return;
+        } 
+
         var warPlayed = false;
 
         // Cycle all played cards
@@ -227,10 +292,12 @@ var pythia = {
             const playedCard = data.args.cards[cardId];
             const originalCard = this.game.card_types[playedCard.type];
             const player = playedCard.location_arg;
+            if (!originalCard.category) return; // Input check
             const cardCategory = originalCard.category;
 
             // Track if played card was military
             if (cardCategory == "mil") {
+                if (!originalCard.shield) return; // Input check
                 warPlayed = true;
                 this.players[player].shields += originalCard.shield;
             }
@@ -252,12 +319,22 @@ var pythia = {
     recordCoins: function(data) {
         if (Enable_Logging) console.log("PYTHIA: coins changed - I got", data);
 
+        // Input check
+        if (!data || !data.args || !data.args.coinddelta) {
+            return;
+        } 
+
         this.players[data.args.player_id].coins += data.args.coinddelta;
     },
 
     // If main player discarded - we know what card it was
     recordDiscard: function(data) {
         if (Enable_Logging) console.log("PYTHIA: card discarded - I got", data);
+
+        // Input check
+        if (!data || !data.args || !data.args.card_id || !!data.channelorig) {
+            return;
+        } 
 
         var player = data.channelorig.substring(9);
         delete this.players[player].hand[data.args.card_id];
@@ -266,6 +343,11 @@ var pythia = {
     // If Rhodos built a stage - it could have shields
     recordWonderStage: function(data) {
         if (Enable_Logging) console.log("PYTHIA: wonder built - I got", data);
+
+        // Input check
+        if (!data || !data.args || !data.args.step || !data.args.player_id) {
+            return;
+        } 
 
         const playerId = data.args.player_id;
         const stage = data.args.step;
@@ -282,6 +364,11 @@ var pythia = {
     recordWonderChoice: function(data) {
         if (Enable_Logging) console.log("PYTHIA: wonders chosen - I got", data);
 
+        // Input check
+        if (!data || !data.args || !data.args.wonders) {
+            return;
+        } 
+
         const wonders = Object.keys(data.args.wonders);
         for (const playerId of wonders) {
             this.players[playerId].wonder = data.args.wonders[playerId];
@@ -291,6 +378,11 @@ var pythia = {
     // Update internal scores as well
     recordScoreUpdate: function(data) {
         if (Enable_Logging) console.log("PYTHIA: scores updated - I got", data);
+
+        // Input check
+        if (!data || !data.args || !data.args.scores) {
+            return;
+        } 
 
         const scores = Object.keys(data.args.scores);
         for (const playerId of scores) {
@@ -302,6 +394,11 @@ var pythia = {
     // If this is the last war - do cleanup
     recordWarResults: function(data) {
         if (Enable_Logging) console.log("PYTHIA: war battle happened - I got", data);
+
+        // Input check
+        if (!data || !data.args || !data.args.points || !data.args.neighbour_id) {
+            return;
+        } 
 
         // Save defeat tokens
         if (data.args.points > 0) {
@@ -403,10 +500,11 @@ var pythia = {
                 "after");
         }
 
-        // Insert card container
+        // Skip card container for main player and if already rendered
         if (playerId == this.mainPlayer || this.dojo.byId(Player_Cards_Id_Prefix + playerId)) {
             return;
         }
+        // Insert card container
         this.dojo.place("<div id='" + Player_Cards_Id_Prefix + playerId + "'" +
             " class='" + Player_Cards_Div_Class + "'" +
             " style='height: " + CSS_Player_Cards_Div_Height + ";'></div>",
@@ -446,8 +544,11 @@ var pythia = {
 
     // Update total player score
     renderPlayerScore: function(playerId, score = 0) {
-        const totalScore = this.players[playerId].bgaScore + this.players[playerId].warScore;
-        this.dojo.byId(Player_Score_Id_Prefix + playerId).innerHTML = " (" + totalScore + ")";
+        var playerScore = this.dojo.byId(Player_Score_Id_Prefix + playerId);
+        if (playerScore) {
+            const totalScore = this.players[playerId].bgaScore + this.players[playerId].warScore;
+            playerScore.innerHTML = " (" + totalScore + ")";
+        }
     },
 
     // Add border and position of leader and runnerup players
@@ -480,21 +581,28 @@ var pythia = {
         this.dojo.addClass(BGA_Player_Board_Id_Prefix + totalScores[1][0], Player_Runnerup_Class);
     },
 
-    // Add laurel wreath icon on top of the card container
-    renderCardPoints: function(cardId, pointsWorth = null) {
-        // Leave if card has no points worth info
-        if (pointsWorth === null) {
+    // Add laurel wreath and coins icons on top of the card container
+    renderCardPoints: function(cardId, pointsWorth = null, coinsWorth = null) {
+        // Leave if card has no worth info
+        if (pointsWorth === null && coinsWorth === null) {
             return;
         }
 
-        // Clean up previous point worth in case we saw this card already
-        const containerId = Card_Points_Worth_Id_Prefix + cardId;
+        // Clean up previous worth in case we saw this card already
+        const containerId = Card_Worth_Id_Prefix + cardId;
         this.dojo.destroy(containerId);
 
+        // Build HTML 
         const displayStyle = this.settings.enableCardPoints ? "block" : "none";
-        const html = "<span id='" + containerId + "' class='" + Card_Points_Worth_Class + "'" +
-            "style='display:" + displayStyle + ";'>" +
-            "<img src='" + Victory_Points_Image[pointsWorth] + "' /></span>";
+        var html = "<span id='" + containerId + "' class='" + Card_Worth_Class + "' style='display:" + displayStyle + ";'>";
+        if (coinsWorth !== null) {
+            html += "<img class='" + Card_Worth_Coins_Class + "' src='" + Coins_Image[coinsWorth] + "' />";
+        }
+        if (pointsWorth !== null) {
+            html += "<img src='" + Victory_Points_Image[pointsWorth] + "' />";
+        }
+        html += "</span>";
+
         this.dojo.place(html, "cardmenu_" + cardId, "after");
     },
 
@@ -516,7 +624,7 @@ var pythia = {
         menuHtml += "<span class='status'>Enabled</span><button type='button'>Disable</button></div>";
 
         // Card Points setting
-        menuHtml += "<div id='pythia_menu_cardpoints' class='menu_item'><span class='title'>Guild Points:</span>";
+        menuHtml += "<div id='pythia_menu_cardpoints' class='menu_item'><span class='title'>Cards Worth:</span>";
         menuHtml += "<span class='status'>Enabled</span><button type='button'>Disable</button></div>";
 
         menuHtml += "</div>";
@@ -592,9 +700,9 @@ var pythia = {
     },
     togglePythiaSettingCardPointsDisplay: function(pleaseShow) {
         if (pleaseShow) {
-            this.dojo.query("." + Card_Points_Worth_Class).style("display", "block");
+            this.dojo.query("." + Card_Worth_Class).style("display", "block");
         } else {
-            this.dojo.query("." + Card_Points_Worth_Class).style("display", "none");
+            this.dojo.query("." + Card_Worth_Class).style("display", "none");
         }
     },
 
@@ -640,8 +748,9 @@ var pythia = {
             "." + Player_Leader_Class + " h3::before { content: '(Leader) '; color: green; float: left; margin-top: -4px; white-space: pre; }" +
             "." + Player_Runnerup_Class + " { border: 5px solid red; } " +
             "." + Player_Runnerup_Class + " h3::before { content: '(Runner up) '; color: red; float: left; margin-top: -4px; white-space: pre; }" +
-            "." + Card_Points_Worth_Class + " { position: absolute; top: -50px; left: 45px; }" +
-            "." + Card_Points_Worth_Class + " img { zoom: 0.1; }" +
+            "." + Card_Worth_Class + " { position: absolute; top: -53px; left: 6px; width: 128px; text-align: center; }" +
+            "." + Card_Worth_Class + " img { zoom: 0.09; }" +
+            "." + Card_Worth_Class + " img." + Card_Worth_Coins_Class + " { position: relative; top: -35px; }" +
             "</style>", "sevenwonder_wrap", "last");
     }
 };
@@ -659,7 +768,8 @@ function isObjectEmpty(object) {
 window.onload = async function() {
     if (Is_Inside_Game) {
         await sleep(3000); // Wait for BGA to load dojo and 7W scripts
-        if (window.parent.gameui.game_name != "sevenwonders") {
+        if (!window.parent || !window.parent.gameui || !window.parent.gameui.game_name
+            || window.parent.gameui.game_name != "sevenwonders") {
             return;
         }
 
