@@ -3,7 +3,7 @@
 // @description  Visual aid that extends BGA game interface with useful information
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
 // @author       https://github.com/dpavliuchkov
-// @version      0.7
+// @version      0.7.1
 // @include      *boardgamearena.com/*
 // @grant        none
 // ==/UserScript==
@@ -245,7 +245,7 @@ var pythia = {
                     case 59: // Magistrate guild - blue cards
                         pointsWorth = this.players[leftPlayerId].playedCards["civ"] + this.players[rightPlayerId].playedCards["civ"];
                         break;
-                    case 60: // Builds guild - wonder stages]
+                    case 60: // Builders guild - wonder stages]
                         pointsWorth = this.players[this.mainPlayer].wonderStages + this.players[leftPlayerId].wonderStages
                             + this.players[rightPlayerId].wonderStages;
                         break;
@@ -264,8 +264,8 @@ var pythia = {
                         pointsWorth = this.players[this.mainPlayer].playedCards["man"] * 2;
                         break;
                     case 69: // Arena - coins and points for own wonder stages
-                        coinsWorth = this.players[rightPlayerId].wonderStages * 3;
-                        pointsWorth = this.players[rightPlayerId].wonderStages;
+                        coinsWorth = this.players[this.mainPlayer].wonderStages * 3;
+                        pointsWorth = this.players[this.mainPlayer].wonderStages;
                         break;
                 }
                 this.renderCardPoints(cardId, pointsWorth, coinsWorth);
