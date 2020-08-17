@@ -3,7 +3,7 @@
 // @description  Visual aid that extends BGA game interface with useful information
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
 // @author       https://github.com/dpavliuchkov
-// @version      0.7.1
+// @version      0.7.2
 // @include      *boardgamearena.com/*
 // @grant        none
 // ==/UserScript==
@@ -354,7 +354,8 @@ var pythia = {
         const wonderId = this.players[playerId].wonder;
 
         this.players[playerId].wonderStages += 1; // increase a counter of built wonder stages
-        if (this.game.wonders[wonderId].stages[stage].shield) {
+        if (this.game.wonders[wonderId] && this.game.wonders[wonderId].stages
+            && this.game.wonders[wonderId].stages[stage] && this.game.wonders[wonderId].stages[stage].shield) {
             this.players[playerId].shields += this.game.wonders[wonderId].stages[stage].shield;
             this.calculateWarScores();
         }
