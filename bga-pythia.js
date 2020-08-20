@@ -3,7 +3,7 @@
 // @description  Visual aid that extends BGA game interface with useful information
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
 // @author       https://github.com/dpavliuchkov
-// @version      0.7.3
+// @version      0.8
 // @include      *boardgamearena.com/*
 // @grant        none
 // ==/UserScript==
@@ -201,78 +201,94 @@ var pythia = {
         this.players[this.mainPlayer].hand = data.args.cards;
 
         // Calculate worth of some cards in victory points and coins
-        if (this.currentAge == 2 || this.currentAge == 3) {
-            // Cycle all cards in hand
-            for (var cardId in data.args.cards) {
-                const playedCard = data.args.cards[cardId];
-                const leftPlayerId = this.players[this.mainPlayer].left;
-                const rightPlayerId = this.players[this.mainPlayer].right;
+        for (var cardId in data.args.cards) {
+            const playedCard = data.args.cards[cardId];
+            const leftPlayerId = this.players[this.mainPlayer].left;
+            const rightPlayerId = this.players[this.mainPlayer].right;
 
-                var pointsWorth = null;
-                var coinsWorth = null;
-                switch (parseInt(playedCard.type)) {
-                    // Age 2 commerce
-                    case 41: // Vineyard - coins for brown cards
-                        coinsWorth = this.players[leftPlayerId].playedCards["raw"] + this.players[rightPlayerId].playedCards["raw"] +
-                            this.players[this.mainPlayer].playedCards["raw"];
-                        break;
-                    case 42: // Bazaar - coins for grey cards
-                        coinsWorth = (this.players[leftPlayerId].playedCards["man"] + this.players[rightPlayerId].playedCards["man"] +
-                            this.players[this.mainPlayer].playedCards["man"]) * 2;
-                        break;
+            var pointsWorth = null;
+            var coinsWorth = null;
+            switch (parseInt(playedCard.type)) {
+                // Military cards
+                case 22:
+                case 23:
+                case 24:
+                case 43:
+                case 44:
+                case 45:
+                case 46:
+                case 70:
+                case 71:
+                case 72:
+                case 73:
+                    if (!this.game.card_types[playedCard.type] || !this.game.card_types[playedCard.type].shield) {
+                        continue;
+                    }
+                    pointsWorth = this.calculateMilitaryCardWorth(this.mainPlayer, parseInt(this.game.card_types[playedCard.type].shield));
+                    break;
 
-                        // Age 3 guilds
-                    case 51: // Workers guild - brown cards
-                        pointsWorth = this.players[leftPlayerId].playedCards["raw"] + this.players[rightPlayerId].playedCards["raw"];
-                        break;
-                    case 52: // Craftsmens guild - grey cards
-                        pointsWorth = 2 * (this.players[leftPlayerId].playedCards["man"] + this.players[rightPlayerId].playedCards["man"]);
-                        break;
-                    case 53: // Traders guild - yellow cards
-                        pointsWorth = this.players[leftPlayerId].playedCards["com"] + this.players[rightPlayerId].playedCards["com"];
-                        break;
-                    case 54: // Philosopehrs guild - yellow cards
-                        pointsWorth = this.players[leftPlayerId].playedCards["sci"] + this.players[rightPlayerId].playedCards["sci"];
-                        break;
-                    case 55: // Spies guild - red cards
-                        pointsWorth = this.players[leftPlayerId].playedCards["mil"] + this.players[rightPlayerId].playedCards["mil"];
-                        break;
-                    case 56: // Strategist guild - defeat tokens
-                        pointsWorth = this.players[leftPlayerId].defeats + this.players[rightPlayerId].defeats;
-                        break;
-                    case 57: // Shipowners guild - own brown grey purple cards
-                        pointsWorth = this.players[this.mainPlayer].playedCards["raw"] + this.players[this.mainPlayer].playedCards["man"] +
-                            this.players[this.mainPlayer].playedCards["gui"] + 1;
-                        break;
-                    case 59: // Magistrate guild - blue cards
-                        pointsWorth = this.players[leftPlayerId].playedCards["civ"] + this.players[rightPlayerId].playedCards["civ"];
-                        break;
-                    case 60: // Builders guild - wonder stages]
-                        pointsWorth = this.players[this.mainPlayer].wonderStages + this.players[leftPlayerId].wonderStages +
-                            this.players[rightPlayerId].wonderStages;
-                        break;
+                // Age 2 commerce
+                case 41: // Vineyard - coins for brown cards
+                    coinsWorth = this.players[leftPlayerId].playedCards["raw"] + this.players[rightPlayerId].playedCards["raw"] +
+                        this.players[this.mainPlayer].playedCards["raw"];
+                    break;
+                case 42: // Bazaar - coins for grey cards
+                    coinsWorth = (this.players[leftPlayerId].playedCards["man"] + this.players[rightPlayerId].playedCards["man"] +
+                        this.players[this.mainPlayer].playedCards["man"]) * 2;
+                    break;
 
-                        // Age 3 commerce
-                    case 66: // Haven - coins and points for own brown cards
-                        coinsWorth = this.players[this.mainPlayer].playedCards["raw"];
-                        pointsWorth = this.players[this.mainPlayer].playedCards["raw"];
-                        break;
-                    case 67: // Lighthouse - coins and points for own yellow cards
-                        coinsWorth = this.players[this.mainPlayer].playedCards["com"] + 1;
-                        pointsWorth = this.players[this.mainPlayer].playedCards["com"] + 1;
-                        break;
-                    case 68: // Chamber of commerce - coins and points for own grey cards
-                        coinsWorth = this.players[this.mainPlayer].playedCards["man"] * 2;
-                        pointsWorth = this.players[this.mainPlayer].playedCards["man"] * 2;
-                        break;
-                    case 69: // Arena - coins and points for own wonder stages
-                        coinsWorth = this.players[this.mainPlayer].wonderStages * 3;
-                        pointsWorth = this.players[this.mainPlayer].wonderStages;
-                        break;
-                }
-                this.renderCardPoints(cardId, pointsWorth, coinsWorth);
+                // Age 3 guilds
+                case 51: // Workers guild - brown cards
+                    pointsWorth = this.players[leftPlayerId].playedCards["raw"] + this.players[rightPlayerId].playedCards["raw"];
+                    break;
+                case 52: // Craftsmens guild - grey cards
+                    pointsWorth = 2 * (this.players[leftPlayerId].playedCards["man"] + this.players[rightPlayerId].playedCards["man"]);
+                    break;
+                case 53: // Traders guild - yellow cards
+                    pointsWorth = this.players[leftPlayerId].playedCards["com"] + this.players[rightPlayerId].playedCards["com"];
+                    break;
+                case 54: // Philosopehrs guild - yellow cards
+                    pointsWorth = this.players[leftPlayerId].playedCards["sci"] + this.players[rightPlayerId].playedCards["sci"];
+                    break;
+                case 55: // Spies guild - red cards
+                    pointsWorth = this.players[leftPlayerId].playedCards["mil"] + this.players[rightPlayerId].playedCards["mil"];
+                    break;
+                case 56: // Strategist guild - defeat tokens
+                    pointsWorth = this.players[leftPlayerId].defeats + this.players[rightPlayerId].defeats;
+                    break;
+                case 57: // Shipowners guild - own brown grey purple cards
+                    pointsWorth = this.players[this.mainPlayer].playedCards["raw"] + this.players[this.mainPlayer].playedCards["man"] +
+                        this.players[this.mainPlayer].playedCards["gui"] + 1;
+                    break;
+                case 59: // Magistrate guild - blue cards
+                    pointsWorth = this.players[leftPlayerId].playedCards["civ"] + this.players[rightPlayerId].playedCards["civ"];
+                    break;
+                case 60: // Builders guild - wonder stages]
+                    pointsWorth = this.players[this.mainPlayer].wonderStages + this.players[leftPlayerId].wonderStages +
+                        this.players[rightPlayerId].wonderStages;
+                    break;
+
+                // Age 3 commerce
+                case 66: // Haven - coins and points for own brown cards
+                    coinsWorth = this.players[this.mainPlayer].playedCards["raw"];
+                    pointsWorth = this.players[this.mainPlayer].playedCards["raw"];
+                    break;
+                case 67: // Lighthouse - coins and points for own yellow cards
+                    coinsWorth = this.players[this.mainPlayer].playedCards["com"] + 1;
+                    pointsWorth = this.players[this.mainPlayer].playedCards["com"] + 1;
+                    break;
+                case 68: // Chamber of commerce - coins and points for own grey cards
+                    coinsWorth = this.players[this.mainPlayer].playedCards["man"] * 2;
+                    pointsWorth = this.players[this.mainPlayer].playedCards["man"] * 2;
+                    break;
+                case 69: // Arena - coins and points for own wonder stages
+                    coinsWorth = this.players[this.mainPlayer].wonderStages * 3;
+                    pointsWorth = this.players[this.mainPlayer].wonderStages;
+                    break;
             }
+            this.renderCardPoints(cardId, pointsWorth, coinsWorth);
         }
+        
 
         // Update leader & runnerup positions
         this.renderLeaderRunnerup();
@@ -447,6 +463,35 @@ var pythia = {
             currentPlayerId = thisPlayer.right;
             i++;
         }
+    },
+
+    // How will war score change if a player gets extra shields
+    calculateMilitaryCardWorth: function (playerId, extraShields) {
+        // Input check
+        if (!this.players[playerId]) {
+            return 0;
+        }
+
+        var thisPlayer = this.players[playerId];
+        var newWarScore = 0;
+
+        // Check battles with right neighbour
+        var rightPlayer = this.players[thisPlayer.right];
+        if ((thisPlayer.shields + extraShields) > rightPlayer.shields) {
+            newWarScore += War_Points_Per_Age[this.currentAge];
+        } else if ((thisPlayer.shields + extraShields) < rightPlayer.shields) {
+            newWarScore -= War_Points_Per_Age[this.currentAge];
+        }
+
+        // Check battles with left neighbour
+        var leftPlayer = this.players[thisPlayer.left];
+        if ((thisPlayer.shields + extraShields) > leftPlayer.shields) {
+            newWarScore += War_Points_Per_Age[this.currentAge];
+        } else if ((thisPlayer.shields + extraShields) < leftPlayer.shields) {
+            newWarScore -= War_Points_Per_Age[this.currentAge];
+        }
+
+        return newWarScore - thisPlayer.warScore;
     },
 
     // Cleanup things between ages
