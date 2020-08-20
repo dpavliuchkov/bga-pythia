@@ -3,7 +3,7 @@
 // @description  Visual aid that extends BGA game interface with useful information
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
 // @author       https://github.com/dpavliuchkov
-// @version      0.8
+// @version      0.8.1
 // @include      *boardgamearena.com/*
 // @grant        none
 // ==/UserScript==
@@ -142,6 +142,12 @@ var pythia = {
                     "sci": 0,
                     "gui": 0,
                 },
+                science: {
+                    "gears" : 0, // 1 in BGA
+                    "tablets" : 0, // 2 in BGA
+                    "compasses" : 0, // 3 in BGA
+                    "jokers" : 0, // ? in BGA
+                }
             };
 
             // Identify who sits to the left and to the right
@@ -192,6 +198,9 @@ var pythia = {
             return;
         }
 
+        // Update leader & runnerup positions
+        this.renderLeaderRunnerup();
+
         // Rotate old hands and render cards
         if (!this.isFirstTurn()) {
             this.passCards();
@@ -200,98 +209,12 @@ var pythia = {
         // Save new hand to main player
         this.players[this.mainPlayer].hand = data.args.cards;
 
-        // Calculate worth of some cards in victory points and coins
+        // Get card worth in victory points and coins and render it
         for (var cardId in data.args.cards) {
             const playedCard = data.args.cards[cardId];
-            const leftPlayerId = this.players[this.mainPlayer].left;
-            const rightPlayerId = this.players[this.mainPlayer].right;
-
-            var pointsWorth = null;
-            var coinsWorth = null;
-            switch (parseInt(playedCard.type)) {
-                // Military cards
-                case 22:
-                case 23:
-                case 24:
-                case 43:
-                case 44:
-                case 45:
-                case 46:
-                case 70:
-                case 71:
-                case 72:
-                case 73:
-                    if (!this.game.card_types[playedCard.type] || !this.game.card_types[playedCard.type].shield) {
-                        continue;
-                    }
-                    pointsWorth = this.calculateMilitaryCardWorth(this.mainPlayer, parseInt(this.game.card_types[playedCard.type].shield));
-                    break;
-
-                // Age 2 commerce
-                case 41: // Vineyard - coins for brown cards
-                    coinsWorth = this.players[leftPlayerId].playedCards["raw"] + this.players[rightPlayerId].playedCards["raw"] +
-                        this.players[this.mainPlayer].playedCards["raw"];
-                    break;
-                case 42: // Bazaar - coins for grey cards
-                    coinsWorth = (this.players[leftPlayerId].playedCards["man"] + this.players[rightPlayerId].playedCards["man"] +
-                        this.players[this.mainPlayer].playedCards["man"]) * 2;
-                    break;
-
-                // Age 3 guilds
-                case 51: // Workers guild - brown cards
-                    pointsWorth = this.players[leftPlayerId].playedCards["raw"] + this.players[rightPlayerId].playedCards["raw"];
-                    break;
-                case 52: // Craftsmens guild - grey cards
-                    pointsWorth = 2 * (this.players[leftPlayerId].playedCards["man"] + this.players[rightPlayerId].playedCards["man"]);
-                    break;
-                case 53: // Traders guild - yellow cards
-                    pointsWorth = this.players[leftPlayerId].playedCards["com"] + this.players[rightPlayerId].playedCards["com"];
-                    break;
-                case 54: // Philosopehrs guild - yellow cards
-                    pointsWorth = this.players[leftPlayerId].playedCards["sci"] + this.players[rightPlayerId].playedCards["sci"];
-                    break;
-                case 55: // Spies guild - red cards
-                    pointsWorth = this.players[leftPlayerId].playedCards["mil"] + this.players[rightPlayerId].playedCards["mil"];
-                    break;
-                case 56: // Strategist guild - defeat tokens
-                    pointsWorth = this.players[leftPlayerId].defeats + this.players[rightPlayerId].defeats;
-                    break;
-                case 57: // Shipowners guild - own brown grey purple cards
-                    pointsWorth = this.players[this.mainPlayer].playedCards["raw"] + this.players[this.mainPlayer].playedCards["man"] +
-                        this.players[this.mainPlayer].playedCards["gui"] + 1;
-                    break;
-                case 59: // Magistrate guild - blue cards
-                    pointsWorth = this.players[leftPlayerId].playedCards["civ"] + this.players[rightPlayerId].playedCards["civ"];
-                    break;
-                case 60: // Builders guild - wonder stages]
-                    pointsWorth = this.players[this.mainPlayer].wonderStages + this.players[leftPlayerId].wonderStages +
-                        this.players[rightPlayerId].wonderStages;
-                    break;
-
-                // Age 3 commerce
-                case 66: // Haven - coins and points for own brown cards
-                    coinsWorth = this.players[this.mainPlayer].playedCards["raw"];
-                    pointsWorth = this.players[this.mainPlayer].playedCards["raw"];
-                    break;
-                case 67: // Lighthouse - coins and points for own yellow cards
-                    coinsWorth = this.players[this.mainPlayer].playedCards["com"] + 1;
-                    pointsWorth = this.players[this.mainPlayer].playedCards["com"] + 1;
-                    break;
-                case 68: // Chamber of commerce - coins and points for own grey cards
-                    coinsWorth = this.players[this.mainPlayer].playedCards["man"] * 2;
-                    pointsWorth = this.players[this.mainPlayer].playedCards["man"] * 2;
-                    break;
-                case 69: // Arena - coins and points for own wonder stages
-                    coinsWorth = this.players[this.mainPlayer].wonderStages * 3;
-                    pointsWorth = this.players[this.mainPlayer].wonderStages;
-                    break;
-            }
-            this.renderCardPoints(cardId, pointsWorth, coinsWorth);
+            const cardWorth = this.calculateCardWorth(this.mainPlayer, parseInt(playedCard.type));
+            this.renderCardPoints(cardId, cardWorth.points, cardWorth.coins);
         }
-        
-
-        // Update leader & runnerup positions
-        this.renderLeaderRunnerup();
     },
 
     // Process all cards played by all players
@@ -314,11 +237,15 @@ var pythia = {
             const cardCategory = originalCard.category;
 
             // Track if played card was military
-            if (cardCategory == "mil") {
-                if (!originalCard.shield) return; // Input check
+            if (originalCard.shield) {
                 warPlayed = true;
                 this.players[player].shields += originalCard.shield;
                 this.renderMilitaryPower(player);
+            }
+
+            // Update played scientific symbols
+            if (originalCard.science) {
+                this.increaseScienceCounter(player, originalCard.science);
             }
 
             // Update played cards array of the player
@@ -359,7 +286,7 @@ var pythia = {
         delete this.players[player].hand[data.args.card_id];
     },
 
-    // If Rhodos built a stage - it could have shields
+    // Record when a wonder stage was played
     recordWonderStage: function(data) {
         if (Enable_Logging) console.log("PYTHIA: wonder built - I got", data);
 
@@ -373,11 +300,23 @@ var pythia = {
         const wonderId = this.players[playerId].wonder;
 
         this.players[playerId].wonderStages += 1; // increase a counter of built wonder stages
-        if (this.game.wonders[wonderId] && this.game.wonders[wonderId].stages &&
-            this.game.wonders[wonderId].stages[stage] && this.game.wonders[wonderId].stages[stage].shield) {
+
+        // Game correctness check
+        if (!this.game.wonders[wonderId] || !this.game.wonders[wonderId].stages ||
+            !this.game.wonders[wonderId].stages[stage]) {
+            return;
+        }
+
+        // If Rhodos built a stage - it could have shields
+        if (this.game.wonders[wonderId].stages[stage].shield) {
             this.players[playerId].shields += this.game.wonders[wonderId].stages[stage].shield;
             this.calculateWarScores();
             this.renderMilitaryPower(playerId);
+        }
+
+        // If Babylon built a stage - it could have science
+        if (this.game.wonders[wonderId].stages[stage].science) {
+            this.increaseScienceCounter(playerId, this.game.wonders[wonderId].stages[stage].science);
         }
     },
 
@@ -465,10 +404,121 @@ var pythia = {
         }
     },
 
+    calculateCardWorth: function(playerId, cardType) {
+        const leftPlayerId = this.players[playerId].left;
+        const rightPlayerId = this.players[playerId].right;
+
+        var worth = {
+            points: null,
+            coins: null,
+        };
+
+        switch (cardType) {
+            // Military cards
+            case 22:
+            case 23:
+            case 24:
+            case 43:
+            case 44:
+            case 45:
+            case 46:
+            case 70:
+            case 71:
+            case 72:
+            case 73:
+                if (!this.game.card_types[cardType] || !this.game.card_types[cardType].shield) {
+                    break;
+                }
+                worth.points = this.calculateMilitaryCardWorth(playerId, parseInt(this.game.card_types[cardType].shield));
+                break;
+
+            // Scientific symbols
+            case 25:
+            case 26:
+            case 27:
+            case 47:
+            case 48:
+            case 49:
+            case 50:
+            case 58:
+            case 74:
+            case 75:
+            case 76:
+            case 77:
+            case 78:
+                if (!this.game.card_types[cardType] || !this.game.card_types[cardType].science) {
+                    break;
+                }
+                worth.points = this.calculateScienceCardWorth(playerId, this.game.card_types[cardType].science);
+                break;
+
+            // Age 2 commerce
+            case 41: // Vineyard - coins for brown cards
+                worth.coins = this.players[leftPlayerId].playedCards["raw"] + this.players[rightPlayerId].playedCards["raw"] +
+                    this.players[playerId].playedCards["raw"];
+                break;
+            case 42: // Bazaar - coins for grey cards
+                worth.coins = (this.players[leftPlayerId].playedCards["man"] + this.players[rightPlayerId].playedCards["man"] +
+                    this.players[playerId].playedCards["man"]) * 2;
+                break;
+
+            // Age 3 guilds
+            case 51: // Workers guild - brown cards
+                worth.points = this.players[leftPlayerId].playedCards["raw"] + this.players[rightPlayerId].playedCards["raw"];
+                break;
+            case 52: // Craftsmens guild - grey cards
+                worth.points = 2 * (this.players[leftPlayerId].playedCards["man"] + this.players[rightPlayerId].playedCards["man"]);
+                break;
+            case 53: // Traders guild - yellow cards
+                worth.points = this.players[leftPlayerId].playedCards["com"] + this.players[rightPlayerId].playedCards["com"];
+                break;
+            case 54: // Philosopehrs guild - yellow cards
+                worth.points = this.players[leftPlayerId].playedCards["sci"] + this.players[rightPlayerId].playedCards["sci"];
+                break;
+            case 55: // Spies guild - red cards
+                worth.points = this.players[leftPlayerId].playedCards["mil"] + this.players[rightPlayerId].playedCards["mil"];
+                break;
+            case 56: // Strategist guild - defeat tokens
+                worth.points = this.players[leftPlayerId].defeats + this.players[rightPlayerId].defeats;
+                break;
+            case 57: // Shipowners guild - own brown grey purple cards
+                worth.points = this.players[playerId].playedCards["raw"] + this.players[playerId].playedCards["man"] +
+                    this.players[playerId].playedCards["gui"] + 1;
+                break;
+            case 59: // Magistrate guild - blue cards
+                worth.points = this.players[leftPlayerId].playedCards["civ"] + this.players[rightPlayerId].playedCards["civ"];
+                break;
+            case 60: // Builders guild - wonder stages]
+                worth.points = this.players[playerId].wonderStages + this.players[leftPlayerId].wonderStages +
+                    this.players[rightPlayerId].wonderStages;
+                break;
+
+            // Age 3 commerce
+            case 66: // Haven - coins and points for own brown cards
+                worth.coins = this.players[playerId].playedCards["raw"];
+                worth.points = this.players[playerId].playedCards["raw"];
+                break;
+            case 67: // Lighthouse - coins and points for own yellow cards
+                worth.coins = this.players[playerId].playedCards["com"] + 1;
+                worth.points = this.players[playerId].playedCards["com"] + 1;
+                break;
+            case 68: // Chamber of commerce - coins and points for own grey cards
+                worth.coins = this.players[playerId].playedCards["man"] * 2;
+                worth.points = this.players[playerId].playedCards["man"] * 2;
+                break;
+            case 69: // Arena - coins and points for own wonder stages
+                worth.coins = this.players[playerId].wonderStages * 3;
+                worth.points = this.players[playerId].wonderStages;
+                break;
+        }
+
+        return worth;
+    },
+
     // How will war score change if a player gets extra shields
     calculateMilitaryCardWorth: function (playerId, extraShields) {
         // Input check
-        if (!this.players[playerId]) {
+        if (!playerId || !this.players[playerId]) {
             return 0;
         }
 
@@ -480,7 +530,7 @@ var pythia = {
         if ((thisPlayer.shields + extraShields) > rightPlayer.shields) {
             newWarScore += War_Points_Per_Age[this.currentAge];
         } else if ((thisPlayer.shields + extraShields) < rightPlayer.shields) {
-            newWarScore -= War_Points_Per_Age[this.currentAge];
+            newWarScore -= 1;
         }
 
         // Check battles with left neighbour
@@ -488,10 +538,68 @@ var pythia = {
         if ((thisPlayer.shields + extraShields) > leftPlayer.shields) {
             newWarScore += War_Points_Per_Age[this.currentAge];
         } else if ((thisPlayer.shields + extraShields) < leftPlayer.shields) {
-            newWarScore -= War_Points_Per_Age[this.currentAge];
+            newWarScore -= 1;
         }
 
         return newWarScore - thisPlayer.warScore;
+    },
+
+    // How many points will this science card bring to a player?
+    calculateScienceCardWorth: function(playerId, newSymbol) {
+        // Input check
+        if (!playerId || !this.players[playerId] || ! this.players[playerId].science) {
+            return;
+        }
+
+        const playerScience = this.players[playerId].science;
+        const sciencePointsNow = this.calculateSciencePoints(playerScience.gears, playerScience.tablets,
+            playerScience.compasses, playerScience.jokers);
+        var sciencePointsAfter = null;
+
+        switch (newSymbol) {
+            case 1:
+                sciencePointsAfter = this.calculateSciencePoints(playerScience.gears + 1,
+                    playerScience.tablets, playerScience.compasses, playerScience.jokers);
+                break;
+                
+            case 2:
+                sciencePointsAfter = this.calculateSciencePoints(playerScience.gears,
+                    playerScience.tablets + 1, playerScience.compasses, playerScience.jokers);
+                break;
+
+            case 3:
+                sciencePointsAfter = this.calculateSciencePoints(playerScience.gears,
+                    playerScience.tablets, playerScience.compasses + 1, playerScience.jokers);
+                break;
+
+            case "?":
+                sciencePointsAfter = this.calculateSciencePoints(playerScience.gears,
+                    playerScience.tablets, playerScience.compasses, playerScience.jokers + 1);
+                break;
+
+            default:
+                break;
+        }
+
+        return sciencePointsAfter - sciencePointsNow;
+    },
+
+    // How many points will a science set bring?
+    calculateSciencePoints: function(gears, tablets, compasses, jokers) {
+        // Joker can be any symbol, calculate each option with recursion if we have them
+        if (jokers > 0) {
+            const pointsWithJokerGear = this.calculateSciencePoints(gears + 1, tablets, compasses, jokers - 1);
+            const pointsWithJokerTablet = this.calculateSciencePoints(gears, tablets + 1, compasses, jokers - 1);
+            const pointsWithJokerCompass = this.calculateSciencePoints(gears, tablets, compasses + 1, jokers - 1);
+
+            return Math.max(pointsWithJokerGear, pointsWithJokerTablet, pointsWithJokerCompass);
+        } else {
+            // No jokers - calculate according to the rules
+            var points = gears * gears + tablets * tablets + compasses * compasses; // individual symbols
+            points += 7 * Math.min(gears, tablets, compasses); // set of 3
+
+            return points;
+        }
     },
 
     // Cleanup things between ages
@@ -522,6 +630,17 @@ var pythia = {
     // Decrase war scores
     decreaseWarScore: function(playerId, age) {
         this.players[playerId].warScore -= 1;
+    },
+
+    // Add a counter to played science symbols
+    increaseScienceCounter: function(player, symbol) {
+        switch (symbol) {
+            case 1: this.players[player].science.gears += 1; break;
+            case 2: this.players[player].science.tablets += 1; break;
+            case 3: this.players[player].science.compasses += 1; break;
+            case "?": this.players[player].science.jokers += 1; break;
+            default: break;
+        }
     },
 
     // Move cards unplayed cards between players
