@@ -3,7 +3,7 @@
 // @description  Visual aid that extends BGA game interface with useful information
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
 // @author       https://github.com/dpavliuchkov
-// @version      0.7.2
+// @version      0.7.3
 // @include      *boardgamearena.com/*
 // @grant        none
 // ==/UserScript==
@@ -27,6 +27,7 @@ const Card_Worth_Class = "pythia_card_worth";
 const Card_Worth_Coins_Class = "pythia_card_coins_worth";
 const Player_Cards_Id_Prefix = "pythia_cards_wrap_";
 const Player_Score_Id_Prefix = "pythia_score_";
+const Player_Military_Power_Id_Prefix = "pythia_military_power_";
 const Player_Cards_Div_Class = "pythia_cards_container";
 const Player_Score_Span_Class = "pythia_score";
 const Player_Leader_Class = "pythia_leader";
@@ -72,6 +73,7 @@ const Coins_Image = {
     13: "https://github.com/dpavliuchkov/bga-pythia/blob/master/images/13%20coins.png?raw=true",
     14: "https://github.com/dpavliuchkov/bga-pythia/blob/master/images/14%20coins.png?raw=true",
 };
+const Military_Power_Icon = "https://github.com/dpavliuchkov/bga-pythia/blob/master/images/military-power-icon.png?raw=true";
 const Enable_Logging = false;
 
 // Styling variables - feel free to customize
@@ -98,9 +100,9 @@ var pythia = {
     init: function() {
         this.isStarted = true;
         // Check if the site was loaded correctly
-        if (!window.parent || !window.parent.dojo || !window.parent.gameui.gamedatas
-            || !window.parent.gameui.gamedatas.playerorder || !window.parent.gameui.gamedatas.playerorder[0]
-            || !window.parent.gameui.gamedatas.card_types || !window.parent.gameui.gamedatas.wonders) {
+        if (!window.parent || !window.parent.dojo || !window.parent.gameui.gamedatas ||
+            !window.parent.gameui.gamedatas.playerorder || !window.parent.gameui.gamedatas.playerorder[0] ||
+            !window.parent.gameui.gamedatas.card_types || !window.parent.gameui.gamedatas.wonders) {
             return;
         }
         this.dojo = window.parent.dojo;
@@ -110,14 +112,14 @@ var pythia = {
         this.mainPlayer = playerOrder[0];
         // local storage stores value as strings, so we need to parse "false" and "true" to get boolean
         this.settings = {
-            'enableRecordCards': localStorage.getItem('pythia-seetings-recordcards') === null ?
-                true : String(localStorage.getItem('pythia-seetings-recordcards')) == "true",
-            'enableWarScores': localStorage.getItem('pythia-seetings-warscores') === null ?
-                true : String(localStorage.getItem('pythia-seetings-warscores')) == "true",
-            'enableLeaderRunnerupPositions': localStorage.getItem('pythia-seetings-leaderrunnerup') === null ?
-                true : String(localStorage.getItem('pythia-seetings-leaderrunnerup')) == "true",
-            'enableCardPoints': localStorage.getItem('pythia-seetings-cardpoints') === null ?
-                true : String(localStorage.getItem('pythia-seetings-cardpoints')) == "true",
+            "enableRecordCards": localStorage.getItem("pythia-seetings-recordcards") === null ?
+                true : String(localStorage.getItem("pythia-seetings-recordcards")) == "true",
+            "enableWarScores": localStorage.getItem("pythia-seetings-warscores") === null ?
+                true : String(localStorage.getItem("pythia-seetings-warscores")) == "true",
+            "enableLeaderRunnerupPositions": localStorage.getItem("pythia-seetings-leaderrunnerup") === null ?
+                true : String(localStorage.getItem("pythia-seetings-leaderrunnerup")) == "true",
+            "enableCardPoints": localStorage.getItem("pythia-seetings-cardpoints") === null ?
+                true : String(localStorage.getItem("pythia-seetings-cardpoints")) == "true",
         };
 
         for (var i = 0; i < this.playersCount; i++) {
@@ -188,7 +190,7 @@ var pythia = {
         // Input check
         if (!data || !data.args || !data.args.cards) {
             return;
-        } 
+        }
 
         // Rotate old hands and render cards
         if (!this.isFirstTurn()) {
@@ -211,15 +213,15 @@ var pythia = {
                 switch (parseInt(playedCard.type)) {
                     // Age 2 commerce
                     case 41: // Vineyard - coins for brown cards
-                        coinsWorth = this.players[leftPlayerId].playedCards["raw"] + this.players[rightPlayerId].playedCards["raw"]
-                        + this.players[this.mainPlayer].playedCards["raw"];
+                        coinsWorth = this.players[leftPlayerId].playedCards["raw"] + this.players[rightPlayerId].playedCards["raw"] +
+                            this.players[this.mainPlayer].playedCards["raw"];
                         break;
                     case 42: // Bazaar - coins for grey cards
-                        coinsWorth = (this.players[leftPlayerId].playedCards["man"] + this.players[rightPlayerId].playedCards["man"]
-                        + this.players[this.mainPlayer].playedCards["man"]) * 2;
+                        coinsWorth = (this.players[leftPlayerId].playedCards["man"] + this.players[rightPlayerId].playedCards["man"] +
+                            this.players[this.mainPlayer].playedCards["man"]) * 2;
                         break;
 
-                    // Age 3 guilds
+                        // Age 3 guilds
                     case 51: // Workers guild - brown cards
                         pointsWorth = this.players[leftPlayerId].playedCards["raw"] + this.players[rightPlayerId].playedCards["raw"];
                         break;
@@ -239,18 +241,18 @@ var pythia = {
                         pointsWorth = this.players[leftPlayerId].defeats + this.players[rightPlayerId].defeats;
                         break;
                     case 57: // Shipowners guild - own brown grey purple cards
-                        pointsWorth = this.players[this.mainPlayer].playedCards["raw"] + this.players[this.mainPlayer].playedCards["man"]
-                            + this.players[this.mainPlayer].playedCards["gui"] + 1;
+                        pointsWorth = this.players[this.mainPlayer].playedCards["raw"] + this.players[this.mainPlayer].playedCards["man"] +
+                            this.players[this.mainPlayer].playedCards["gui"] + 1;
                         break;
                     case 59: // Magistrate guild - blue cards
                         pointsWorth = this.players[leftPlayerId].playedCards["civ"] + this.players[rightPlayerId].playedCards["civ"];
                         break;
                     case 60: // Builders guild - wonder stages]
-                        pointsWorth = this.players[this.mainPlayer].wonderStages + this.players[leftPlayerId].wonderStages
-                            + this.players[rightPlayerId].wonderStages;
+                        pointsWorth = this.players[this.mainPlayer].wonderStages + this.players[leftPlayerId].wonderStages +
+                            this.players[rightPlayerId].wonderStages;
                         break;
 
-                    // Age 3 commerce
+                        // Age 3 commerce
                     case 66: // Haven - coins and points for own brown cards
                         coinsWorth = this.players[this.mainPlayer].playedCards["raw"];
                         pointsWorth = this.players[this.mainPlayer].playedCards["raw"];
@@ -283,7 +285,7 @@ var pythia = {
         // Input check
         if (!data || !data.args || !data.args.cards) {
             return;
-        } 
+        }
 
         var warPlayed = false;
 
@@ -300,6 +302,7 @@ var pythia = {
                 if (!originalCard.shield) return; // Input check
                 warPlayed = true;
                 this.players[player].shields += originalCard.shield;
+                this.renderMilitaryPower(player);
             }
 
             // Update played cards array of the player
@@ -322,7 +325,7 @@ var pythia = {
         // Input check
         if (!data || !data.args || !data.args.coinddelta) {
             return;
-        } 
+        }
 
         this.players[data.args.player_id].coins += data.args.coinddelta;
     },
@@ -334,7 +337,7 @@ var pythia = {
         // Input check
         if (!data || !data.args || !data.args.card_id || !!data.channelorig) {
             return;
-        } 
+        }
 
         var player = data.channelorig.substring(9);
         delete this.players[player].hand[data.args.card_id];
@@ -347,17 +350,18 @@ var pythia = {
         // Input check
         if (!data || !data.args || !data.args.step || !data.args.player_id) {
             return;
-        } 
+        }
 
         const playerId = data.args.player_id;
         const stage = data.args.step;
         const wonderId = this.players[playerId].wonder;
 
         this.players[playerId].wonderStages += 1; // increase a counter of built wonder stages
-        if (this.game.wonders[wonderId] && this.game.wonders[wonderId].stages
-            && this.game.wonders[wonderId].stages[stage] && this.game.wonders[wonderId].stages[stage].shield) {
+        if (this.game.wonders[wonderId] && this.game.wonders[wonderId].stages &&
+            this.game.wonders[wonderId].stages[stage] && this.game.wonders[wonderId].stages[stage].shield) {
             this.players[playerId].shields += this.game.wonders[wonderId].stages[stage].shield;
             this.calculateWarScores();
+            this.renderMilitaryPower(playerId);
         }
     },
 
@@ -368,7 +372,7 @@ var pythia = {
         // Input check
         if (!data || !data.args || !data.args.wonders) {
             return;
-        } 
+        }
 
         const wonders = Object.keys(data.args.wonders);
         for (const playerId of wonders) {
@@ -383,7 +387,7 @@ var pythia = {
         // Input check
         if (!data || !data.args || !data.args.scores) {
             return;
-        } 
+        }
 
         const scores = Object.keys(data.args.scores);
         for (const playerId of scores) {
@@ -399,7 +403,7 @@ var pythia = {
         // Input check
         if (!data || !data.args || !data.args.points || !data.args.neighbour_id) {
             return;
-        } 
+        }
 
         // Save defeat tokens
         if (data.args.points > 0) {
@@ -501,6 +505,18 @@ var pythia = {
                 "after");
         }
 
+        // Insert military power container
+        if (!this.dojo.byId(Player_Military_Power_Id_Prefix + playerId)) {
+            const refNode = this.dojo.query("#" + BGA_Player_Board_Id_Prefix + playerId + " .sw_coins");
+            if (refNode && refNode[0]) {
+                this.dojo.place(
+                    "<div id='" + Player_Military_Power_Id_Prefix + playerId + "' class='pythia_player_military_power'>" +
+                    "<img src='" + Military_Power_Icon + "'/><span>0</span></div>",
+                    refNode[0],
+                    "last");
+            }
+        }
+
         // Skip card container for main player and if already rendered
         if (playerId == this.mainPlayer || this.dojo.byId(Player_Cards_Id_Prefix + playerId)) {
             return;
@@ -540,6 +556,10 @@ var pythia = {
                 left += parseInt(CSS_Player_Card_Width) + 2;
             }
             this.dojo.place(cardsHTML, Player_Cards_Id_Prefix + playerId, "only");
+
+            /*
+            window.parent.gameui.addTooltipHtml("pythia_cards_wrap_84858395", window.parent.gameui.tooltips.tree_item_68.label)
+            */
         }
     },
 
@@ -593,7 +613,7 @@ var pythia = {
         const containerId = Card_Worth_Id_Prefix + cardId;
         this.dojo.destroy(containerId);
 
-        // Build HTML 
+        // Build HTML
         const displayStyle = this.settings.enableCardPoints ? "block" : "none";
         var html = "<span id='" + containerId + "' class='" + Card_Worth_Class + "' style='display:" + displayStyle + ";'>";
         if (coinsWorth !== null) {
@@ -605,6 +625,18 @@ var pythia = {
         html += "</span>";
 
         this.dojo.place(html, "cardmenu_" + cardId, "after");
+    },
+
+    // Render shields icon next to player coins
+    renderMilitaryPower: function(playerId) {
+        if (!playerId || !this.players[playerId]) {
+            return;
+        }
+
+        var container = this.dojo.query("#" + Player_Military_Power_Id_Prefix + playerId + " span");
+        if (container[0]) {
+            container[0].innerHTML = this.players[playerId].shields;
+        }
     },
 
     // Render Pythia menu
@@ -647,24 +679,24 @@ var pythia = {
     // Enable or disable display of cards in player hands
     togglePythiaSettingPlayerCards: function(event) {
         this.settings.enableRecordCards = !this.settings.enableRecordCards;
-        localStorage.setItem('pythia-seetings-recordcards', this.settings.enableRecordCards);
+        localStorage.setItem("pythia-seetings-recordcards", this.settings.enableRecordCards);
         this.togglePythiaSettingPlayerCardsDisplay(this.settings.enableRecordCards);
         this.togglePythiaSettingText(event.target.parentNode.id, this.settings.enableRecordCards);
     },
     togglePythiaSettingPlayerCardsDisplay: function(pleaseShow) {
         if (pleaseShow) {
             this.dojo.query("." + Player_Cards_Div_Class).style("display", "block");
-            this.dojo.query(".sw_coins", "boardspaces").addClass('pythia_enabled');
+            this.dojo.query(".sw_coins", "boardspaces").addClass("pythia_enabled");
         } else {
             this.dojo.query("." + Player_Cards_Div_Class).style("display", "none");
-            this.dojo.query(".sw_coins", "boardspaces").removeClass('pythia_enabled');
+            this.dojo.query(".sw_coins", "boardspaces").removeClass("pythia_enabled");
         }
     },
 
     // Enable or disable display of war scores
     togglePythiaSettingWarScores: function(event) {
         this.settings.enableWarScores = !this.settings.enableWarScores;
-        localStorage.setItem('pythia-seetings-warscores', this.settings.enableWarScores);
+        localStorage.setItem("pythia-seetings-warscores", this.settings.enableWarScores);
         this.togglePythiaSettingWarScoresDisplay(this.settings.enableWarScores);
         this.togglePythiaSettingText(event.target.parentNode.id, this.settings.enableWarScores);
     },
@@ -679,7 +711,7 @@ var pythia = {
     // Enable or disable display of leader and runnerup positions
     togglePythiaSettingLeaderRunnerup: function(event) {
         this.settings.enableLeaderRunnerupPositions = !this.settings.enableLeaderRunnerupPositions;
-        localStorage.setItem('pythia-seetings-leaderrunnerup', this.settings.enableLeaderRunnerupPositions);
+        localStorage.setItem("pythia-seetings-leaderrunnerup", this.settings.enableLeaderRunnerupPositions);
         this.togglePythiaSettingLeaderRunnerupDisplay(this.settings.enableLeaderRunnerupPositions);
         this.togglePythiaSettingText(event.target.parentNode.id, this.settings.enableLeaderRunnerupPositions);
     },
@@ -695,7 +727,7 @@ var pythia = {
     // Enable or disable display of cards points worth
     togglePythiaSettingCardPoints: function(event) {
         this.settings.enableCardPoints = !this.settings.enableCardPoints;
-        localStorage.setItem('pythia-seetings-cardpoints', this.settings.enableCardPoints);
+        localStorage.setItem("pythia-seetings-cardpoints", this.settings.enableCardPoints);
         this.togglePythiaSettingCardPointsDisplay(this.settings.enableCardPoints);
         this.togglePythiaSettingText(event.target.parentNode.id, this.settings.enableCardPoints);
     },
@@ -711,14 +743,14 @@ var pythia = {
     togglePythiaSettingText: function(parentId, isEnabled) {
         if (isEnabled) {
             this.dojo.query(".status", parentId)
-                .addClass('enabled')
-                .removeClass('disabled')[0]
+                .addClass("enabled")
+                .removeClass("disabled")[0]
                 .innerHTML = "Enabled";
             this.dojo.query("button", parentId)[0].innerHTML = "Disable";
         } else {
             this.dojo.query(".status", parentId)
-                .addClass('disabled')
-                .removeClass('enabled')[0]
+                .addClass("disabled")
+                .removeClass("enabled")[0]
                 .innerHTML = "Disabled";
             this.dojo.query("button", parentId)[0].innerHTML = "Enable";
         }
@@ -752,6 +784,9 @@ var pythia = {
             "." + Card_Worth_Class + " { position: absolute; top: -53px; left: 6px; width: 128px; text-align: center; }" +
             "." + Card_Worth_Class + " img { zoom: 0.09; }" +
             "." + Card_Worth_Class + " img." + Card_Worth_Coins_Class + " { position: relative; top: -35px; }" +
+            ".pythia_player_military_power { display: inline-block; position: relative; top: 3px; }" +
+            ".pythia_player_military_power img { zoom: 0.35; padding: 0 7px; }" +
+            ".pythia_player_military_power span { position: relative; top: -7px; }" +
             "</style>", "sevenwonder_wrap", "last");
     }
 };
@@ -769,8 +804,8 @@ function isObjectEmpty(object) {
 window.onload = async function() {
     if (Is_Inside_Game) {
         await sleep(3000); // Wait for BGA to load dojo and 7W scripts
-        if (!window.parent || !window.parent.gameui || !window.parent.gameui.game_name
-            || window.parent.gameui.game_name != "sevenwonders") {
+        if (!window.parent || !window.parent.gameui || !window.parent.gameui.game_name ||
+            window.parent.gameui.game_name != "sevenwonders") {
             return;
         }
 
