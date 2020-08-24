@@ -18,6 +18,7 @@
 // ==/UserScript==
 
 // System variables - don't edit
+(function() {
 const Is_Inside_Game = /\?table=[0-9]*/.test(window.location.href);
 const Cards_Image = "https://x.boardgamearena.net/data/themereleases/current/games/sevenwonders/200213-1215/img/cards.jpg";
 const BGA_Player_Board_Id_Prefix = "player_board_wrap_";
@@ -965,7 +966,7 @@ function isObjectEmpty(object) {
 }
 
 // Everything starts here
-window.onload = async function() {
+window.addEventListener('load', async function() {
     if (Is_Inside_Game) {
         await sleep(3000); // Wait for BGA to load dojo and 7W scripts
         if (!window.parent || !window.parent.gameui || !window.parent.gameui.game_name ||
@@ -981,4 +982,5 @@ window.onload = async function() {
             window.parent.pythia = pythia.init();
         }
     }
-};
+});
+})();
