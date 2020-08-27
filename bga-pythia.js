@@ -3,7 +3,7 @@
 // @description  Visual aid that extends BGA game interface with useful information
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
 // @author       https://github.com/dpavliuchkov
-// @version      0.9
+// @version      0.9.1
 // @include      *boardgamearena.com/*
 // @grant        none
 // ==/UserScript==
@@ -27,6 +27,7 @@ const Discard_Card_Worth_Id_Prefix = "pythia_discard_card_worth_container_";
 const Card_Worth_Class = "pythia_card_worth";
 const Card_Worth_Coins_Class = "pythia_card_coins_worth";
 const Player_Cards_Id_Prefix = "pythia_cards_wrap_";
+const Player_Hand_Card_Id_Prefix = "pythia_hand_card_";
 const Player_Score_Id_Prefix = "pythia_score_";
 const Player_Military_Power_Id_Prefix = "pythia_military_power_";
 const Player_Cards_Div_Class = "pythia_cards_container";
@@ -76,16 +77,6 @@ const Coins_Image = {
 };
 const Military_Power_Icon = "https://github.com/dpavliuchkov/bga-pythia/blob/master/images/military-power-icon.png?raw=true";
 const Enable_Logging = false;
-
-// Styling variables - feel free to customize
-const CSS_Player_Cards_Div_Height = "50px";
-const CSS_Player_Card_Zoom = 0.6;
-const CSS_Player_Card_Height = "45px";
-const CSS_Player_Card_Width = "128px";
-const CSS_Player_Card_Title_Top = "-25px";
-const CSS_Player_Card_Title_Font_Size = "18px";
-const CSS_Player_Card_Title_Font_Color = "black";
-
 
 // Main Pythia object
 var pythia = {
@@ -206,6 +197,7 @@ var pythia = {
         if (!this.isFirstTurn()) {
             this.passCards();
             this.renderPlayerCards();
+            this.renderPlayerCardTooltips();
         }
         // Save new hand to main player
         this.players[this.mainPlayer].hand = data.args.cards;
@@ -263,6 +255,7 @@ var pythia = {
         }
     },
 
+    // If there was a trade, update how many coins each player has
     recordCoins: function(data) {
         if (Enable_Logging) console.log("PYTHIA: coins changed - I got", data);
 
@@ -446,6 +439,7 @@ var pythia = {
         }
     },
 
+    // Get how many coins and victory points this card will bring to this player
     calculateCardWorth: function(playerId, cardType) {
         const leftPlayerId = this.players[playerId].left;
         const rightPlayerId = this.players[playerId].right;
@@ -738,8 +732,7 @@ var pythia = {
         }
         // Insert card container
         this.dojo.place("<div id='" + Player_Cards_Id_Prefix + playerId + "'" +
-            " class='" + Player_Cards_Div_Class + "'" +
-            " style='height: " + CSS_Player_Cards_Div_Height + ";'></div>",
+            " class='" + Player_Cards_Div_Class + "'></div>",
             BGA_Player_Board_Id_Prefix + playerId,
             "first");
     },
@@ -753,28 +746,42 @@ var pythia = {
             }
 
             var cardsHTML = "";
-            var left = 7;
+            var left = 1;
             for (var card in this.players[playerId].hand) {
                 var playedCard = this.game.card_types[this.players[playerId].hand[card].type];
                 var posX = -playedCard.backx;
                 var posY = -playedCard.backy;
-                cardsHTML +=
-                    "<div class='stockitem  stockitem_unselectable'" +
-                    "style='zoom: " + CSS_Player_Card_Zoom + "; background-position: " + posX + "px " + posY + "px;" +
-                    "top: 25px; left: " + left + "px; width: " + CSS_Player_Card_Width + "; height: " + CSS_Player_Card_Height + ";" +
-                    " background-image: url(" + Cards_Image + "); opacity: 1; border-width: 0px;'>";
+                const cardHtmlId = Player_Hand_Card_Id_Prefix + card;
 
-                cardsHTML += "<span style='position: absolute; top: " + CSS_Player_Card_Title_Top +
-                    "; font-size: " + CSS_Player_Card_Title_Font_Size +
-                    "; color: " + CSS_Player_Card_Title_Font_Color + ";'>" + playedCard.nametr + "</span></div>";
+                cardsHTML += "<div id='" + cardHtmlId + "' style='left: " + left + "px;'>"
+                cardsHTML += "<div style='background-position: " + posX + "px " + posY + "px;'>";
+                cardsHTML += "<span>" + playedCard.nametr + "</span></div></div>";
 
-                left += parseInt(CSS_Player_Card_Width) + 2;
+                left += 79;
             }
             this.dojo.place(cardsHTML, Player_Cards_Id_Prefix + playerId, "only");
+        }
+    },
 
-            /*
-            window.parent.gameui.addTooltipHtml("pythia_cards_wrap_84858395", window.parent.gameui.tooltips.tree_item_68.label)
-            */
+
+    // Render tooltips for cards in player hands
+    renderPlayerCardTooltips: function() {
+        const keys = Object.keys(this.players);
+        for (const playerId of keys) {
+            if (playerId == this.mainPlayer || isObjectEmpty(this.players[playerId].hand)) {
+                continue;
+            }
+            for (var card in this.players[playerId].hand) {
+                const tooltipId = "player_hand_item_" + card;
+
+                // Game correctness check
+                if (!window.parent.gameui.addTooltipHtml || !window.parent.gameui.tooltips
+                    || !window.parent.gameui.tooltips[tooltipId] || !window.parent.gameui.tooltips[tooltipId].label) {
+                    continue;
+                }
+
+                window.parent.gameui.addTooltipHtml(Player_Hand_Card_Id_Prefix + card, window.parent.gameui.tooltips[tooltipId].label);
+            }
         }
     },
 
@@ -987,6 +994,10 @@ var pythia = {
             ".sw_coins.pythia_enabled { top: 50px; } " +
             "#player_board_wrap_" + this.mainPlayer + " .sw_coins { top: 0px; } " +
             "#player_hand_wrap { padding-top: 52px; } " +
+            "." + Player_Cards_Div_Class + " { height: 50px; } " +
+            "." + Player_Cards_Div_Class + " div { position: absolute; top: 11px; } " +
+            "." + Player_Cards_Div_Class + " div div { background-image: url(" + Cards_Image + "); width: 128px; height: 45px; zoom: 0.6; } " +
+            "." + Player_Cards_Div_Class + " div div span { position: absolute; top: -25px; font-size: 18px; color: black; } " +
             "#pythia_menu { position: absolute; top: 10px; right: 50px; } " +
             "#pythia_menu .menu_header { margin-bottom: 5px; } " +
             "#pythia_menu .menu_header h3 { display: inline; } " +
@@ -1001,10 +1012,10 @@ var pythia = {
             "." + Player_Runnerup_Class + " { border: 5px solid red; } " +
             "." + Player_Runnerup_Class + " h3::before { content: '(Runner up) '; color: red; float: left; margin-top: -4px; white-space: pre; }" +
             "." + Card_Worth_Class + " { position: absolute; top: -53px; left: 6px; width: 128px; text-align: center; }" +
-            "." + Card_Worth_Class + " img { zoom: 0.09; }" +
+            "." + Card_Worth_Class + " img { width: 48px; }" +
             "." + Card_Worth_Class + " img." + Card_Worth_Coins_Class + " { position: relative; top: -35px; }" +
             ".pythia_player_military_power { display: inline-block; position: relative; top: 3px; }" +
-            ".pythia_player_military_power img { zoom: 0.35; padding: 0 7px; }" +
+            ".pythia_player_military_power img { width: 30px; padding: 0 2px 0 4px; }" +
             ".pythia_player_military_power span { position: relative; top: -7px; }" +
             "</style>", "sevenwonder_wrap", "last");
     }
