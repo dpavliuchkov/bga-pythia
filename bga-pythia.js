@@ -1013,7 +1013,7 @@ var pythia = {
             "." + Player_Runnerup_Class + " h3::before { content: '(Runner up) '; color: red; float: left; margin-top: -4px; white-space: pre; }" +
             "." + Card_Worth_Class + " { position: absolute; top: -53px; left: 6px; width: 128px; text-align: center; }" +
             "." + Card_Worth_Class + " img { width: 48px; }" +
-            "." + Card_Worth_Class + " img." + Card_Worth_Coins_Class + " { position: relative; top: -35px; }" +
+            "." + Card_Worth_Class + " img." + Card_Worth_Coins_Class + " { position: relative; top: -3px; }" +
             ".pythia_player_military_power { display: inline-block; position: relative; top: 3px; }" +
             ".pythia_player_military_power img { width: 30px; padding: 0 2px 0 4px; }" +
             ".pythia_player_military_power span { position: relative; top: -7px; }" +
