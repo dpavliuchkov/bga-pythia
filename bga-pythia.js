@@ -3,7 +3,7 @@
 // @description  Visual aid that extends BGA game interface with useful information
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
 // @author       https://github.com/dpavliuchkov
-// @version      0.9.1
+// @version      0.9.3
 // @include      *boardgamearena.com/*
 // @grant        none
 // ==/UserScript==
@@ -887,7 +887,7 @@ var pythia = {
         menuHtml += "<span class='status'>Enabled</span><button type='button'>Disable</button></div>";
 
         menuHtml += "</div>";
-        this.dojo.place(menuHtml, "sevenwonder_wrap", "last");
+        this.dojo.place(menuHtml, "logs_wrap", "before");
 
         // Set correct texts based on settings
         this.togglePythiaSettingText("pythia_menu_playercards", this.settings.enableRecordCards);
@@ -992,21 +992,22 @@ var pythia = {
         this.dojo.place(
             "<style type='text/css' id='Pythia_Styles'>" +
             ".sw_coins.pythia_enabled { top: 50px; } " +
+            ".arena_mode .player_elo_wrap { visibility: visible; }" + 
             "#player_board_wrap_" + this.mainPlayer + " .sw_coins { top: 0px; } " +
-            "#player_hand_wrap { padding-top: 52px; } " +
+            "#player_hand_wrap { padding-top: 58px; } " +
             "." + Player_Cards_Div_Class + " { height: 50px; } " +
             "." + Player_Cards_Div_Class + " div { position: absolute; top: 11px; } " +
             "." + Player_Cards_Div_Class + " div div { background-image: url(" + Cards_Image + "); width: 128px; height: 45px; zoom: 0.6; } " +
             "." + Player_Cards_Div_Class + " div div span { position: absolute; top: -25px; font-size: 18px; color: black; } " +
-            "#pythia_menu { position: absolute; top: 10px; right: 50px; } " +
+            "#pythia_menu { font-size: 14px; } " +
             "#pythia_menu .menu_header { margin-bottom: 5px; } " +
             "#pythia_menu .menu_header h3 { display: inline; } " +
             "#pythia_menu .menu_item { height: 23px; } " +
-            "#pythia_menu .menu_item span.title { width: 140px; display: inline-block;} " +
-            "#pythia_menu .menu_item span.status { text-align: center; width: 60px; display: inline-block; } " +
+            "#pythia_menu .menu_item span.title { width: 120px; display: inline-block;} " +
+            "#pythia_menu .menu_item span.status { text-align: center; width: 50px; display: inline-block; } " +
             "#pythia_menu .menu_item span.status.enabled { color: green; } " +
             "#pythia_menu .menu_item span.status.disabled { color: red; } " +
-            "#pythia_menu .menu_item button { width: 60px; padding: 3px; border-radius: 5px; margin-left: 10px; } " +
+            "#pythia_menu .menu_item button { width: 55px; padding: 3px; border-radius: 5px; margin-left: 10px; } " +
             "." + Player_Leader_Class + " { border: 5px solid green; } " +
             "." + Player_Leader_Class + " h3::before { content: '(Leader) '; color: green; float: left; margin-top: -4px; white-space: pre; }" +
             "." + Player_Runnerup_Class + " { border: 5px solid red; } " +
