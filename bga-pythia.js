@@ -3,7 +3,7 @@
 // @description  Visual aid that extends BGA game interface with useful information
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
 // @author       https://github.com/dpavliuchkov
-// @version      0.8.1
+// @version      0.9
 // @include      *boardgamearena.com/*
 // @grant        none
 // ==/UserScript==
@@ -23,6 +23,7 @@ const Cards_Image = "https://x.boardgamearena.net/data/themereleases/current/gam
 const BGA_Player_Board_Id_Prefix = "player_board_wrap_";
 const BGA_Player_Score_Id_Prefix = "player_score_";
 const Card_Worth_Id_Prefix = "pythia_card_worth_container_";
+const Discard_Card_Worth_Id_Prefix = "pythia_discard_card_worth_container_";
 const Card_Worth_Class = "pythia_card_worth";
 const Card_Worth_Coins_Class = "pythia_card_coins_worth";
 const Player_Cards_Id_Prefix = "pythia_cards_wrap_";
@@ -143,10 +144,10 @@ var pythia = {
                     "gui": 0,
                 },
                 science: {
-                    "gears" : 0, // 1 in BGA
-                    "tablets" : 0, // 2 in BGA
-                    "compasses" : 0, // 3 in BGA
-                    "jokers" : 0, // ? in BGA
+                    "gears": 0, // 1 in BGA
+                    "tablets": 0, // 2 in BGA
+                    "compasses": 0, // 3 in BGA
+                    "jokers": 0, // ? in BGA
                 }
             };
 
@@ -212,8 +213,8 @@ var pythia = {
         // Get card worth in victory points and coins and render it
         for (var cardId in data.args.cards) {
             const playedCard = data.args.cards[cardId];
-            const cardWorth = this.calculateCardWorth(this.mainPlayer, parseInt(playedCard.type));
-            this.renderCardPoints(cardId, cardWorth.points, cardWorth.coins);
+            const cardWorth = this.calculateCardWorth(this.mainPlayer, playedCard.type);
+            this.renderCardPoints(cardId, false, cardWorth.points, cardWorth.coins);
         }
     },
 
@@ -318,6 +319,11 @@ var pythia = {
         if (this.game.wonders[wonderId].stages[stage].science) {
             this.increaseScienceCounter(playerId, this.game.wonders[wonderId].stages[stage].science);
         }
+
+        // If Hali built a stage - it could have discard play
+        if (this.game.wonders[wonderId].stages[stage].pickDiscarded) {
+            this.calculateDiscardWorth(this);
+        }
     },
 
     // Record which wonder each player has chosen
@@ -404,6 +410,42 @@ var pythia = {
         }
     },
 
+    calculateDiscardWorth: function(that, counter = 1) {
+        const discardWrapper = that.dojo.byId('discarded_wrap');
+
+        // Check that we can see discard div, else wait
+        if (discardWrapper.style.display == "block") {
+            const discarded = that.dojo.query("#discarded div");
+            for (var i in discarded) {
+                // Calculate card position - the only way to find which card is actually in discard
+                const card = discarded[i];
+                const posX = -parseInt(card.style.width) * parseInt(card.style.backgroundPositionX) / 100;
+                const posY = -parseInt(card.style.height) * parseInt(card.style.backgroundPositionY) / 100;
+
+                var cardType = null;
+                for (var j in that.game.card_types) {
+                    const originalCard = that.game.card_types[j];
+                    if (originalCard.backx == posX && originalCard.backy == posY) {
+                        cardType = j;
+                        break;
+                    }
+                }
+
+                if (cardType) {
+                    const cardWorth = that.calculateCardWorth(that.mainPlayer, cardType);
+                    that.renderCardPoints(card.id.substr(15), true, cardWorth.points, cardWorth.coins);
+                }
+            }
+        } else {
+            if (counter > 10) {
+                clearTimeout();
+                return;
+            }
+
+            setTimeout(that.calculateDiscardWorth, 2000, that, counter + 1);
+        }
+    },
+
     calculateCardWorth: function(playerId, cardType) {
         const leftPlayerId = this.players[playerId].left;
         const rightPlayerId = this.players[playerId].right;
@@ -413,7 +455,7 @@ var pythia = {
             coins: null,
         };
 
-        switch (cardType) {
+        switch (parseInt(cardType)) {
             // Military cards
             case 22:
             case 23:
@@ -432,7 +474,7 @@ var pythia = {
                 worth.points = this.calculateMilitaryCardWorth(playerId, parseInt(this.game.card_types[cardType].shield));
                 break;
 
-            // Scientific symbols
+                // Scientific symbols
             case 25:
             case 26:
             case 27:
@@ -452,7 +494,7 @@ var pythia = {
                 worth.points = this.calculateScienceCardWorth(playerId, this.game.card_types[cardType].science);
                 break;
 
-            // Age 2 commerce
+                // Age 2 commerce
             case 41: // Vineyard - coins for brown cards
                 worth.coins = this.players[leftPlayerId].playedCards["raw"] + this.players[rightPlayerId].playedCards["raw"] +
                     this.players[playerId].playedCards["raw"];
@@ -462,7 +504,7 @@ var pythia = {
                     this.players[playerId].playedCards["man"]) * 2;
                 break;
 
-            // Age 3 guilds
+                // Age 3 guilds
             case 51: // Workers guild - brown cards
                 worth.points = this.players[leftPlayerId].playedCards["raw"] + this.players[rightPlayerId].playedCards["raw"];
                 break;
@@ -493,7 +535,7 @@ var pythia = {
                     this.players[rightPlayerId].wonderStages;
                 break;
 
-            // Age 3 commerce
+                // Age 3 commerce
             case 66: // Haven - coins and points for own brown cards
                 worth.coins = this.players[playerId].playedCards["raw"];
                 worth.points = this.players[playerId].playedCards["raw"];
@@ -516,7 +558,7 @@ var pythia = {
     },
 
     // How will war score change if a player gets extra shields
-    calculateMilitaryCardWorth: function (playerId, extraShields) {
+    calculateMilitaryCardWorth: function(playerId, extraShields) {
         // Input check
         if (!playerId || !this.players[playerId]) {
             return 0;
@@ -547,7 +589,7 @@ var pythia = {
     // How many points will this science card bring to a player?
     calculateScienceCardWorth: function(playerId, newSymbol) {
         // Input check
-        if (!playerId || !this.players[playerId] || ! this.players[playerId].science) {
+        if (!playerId || !this.players[playerId] || !this.players[playerId].science) {
             return;
         }
 
@@ -561,7 +603,7 @@ var pythia = {
                 sciencePointsAfter = this.calculateSciencePoints(playerScience.gears + 1,
                     playerScience.tablets, playerScience.compasses, playerScience.jokers);
                 break;
-                
+
             case 2:
                 sciencePointsAfter = this.calculateSciencePoints(playerScience.gears,
                     playerScience.tablets + 1, playerScience.compasses, playerScience.jokers);
@@ -635,11 +677,20 @@ var pythia = {
     // Add a counter to played science symbols
     increaseScienceCounter: function(player, symbol) {
         switch (symbol) {
-            case 1: this.players[player].science.gears += 1; break;
-            case 2: this.players[player].science.tablets += 1; break;
-            case 3: this.players[player].science.compasses += 1; break;
-            case "?": this.players[player].science.jokers += 1; break;
-            default: break;
+            case 1:
+                this.players[player].science.gears += 1;
+                break;
+            case 2:
+                this.players[player].science.tablets += 1;
+                break;
+            case 3:
+                this.players[player].science.compasses += 1;
+                break;
+            case "?":
+                this.players[player].science.jokers += 1;
+                break;
+            default:
+                break;
         }
     },
 
@@ -767,14 +818,14 @@ var pythia = {
     },
 
     // Add laurel wreath and coins icons on top of the card container
-    renderCardPoints: function(cardId, pointsWorth = null, coinsWorth = null) {
+    renderCardPoints: function(cardId, isDiscard = false, pointsWorth = null, coinsWorth = null) {
         // Leave if card has no worth info
         if (pointsWorth === null && coinsWorth === null) {
             return;
         }
 
         // Clean up previous worth in case we saw this card already
-        const containerId = Card_Worth_Id_Prefix + cardId;
+        const containerId = isDiscard ? Discard_Card_Worth_Id_Prefix + cardId : Card_Worth_Id_Prefix + cardId;
         this.dojo.destroy(containerId);
 
         // Build HTML
@@ -788,7 +839,11 @@ var pythia = {
         }
         html += "</span>";
 
-        this.dojo.place(html, "cardmenu_" + cardId, "after");
+        if (isDiscard) {
+            this.dojo.place(html, "discarded_item_" + cardId, "only");
+        } else {
+            this.dojo.place(html, "cardmenu_" + cardId, "after");
+        }
     },
 
     // Render shields icon next to player coins
