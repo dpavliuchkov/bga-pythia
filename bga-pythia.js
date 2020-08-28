@@ -3,7 +3,7 @@
 // @description  Visual aid that extends BGA game interface with useful information
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
 // @author       https://github.com/dpavliuchkov
-// @version      0.9.3
+// @version      0.9.4
 // @include      *boardgamearena.com/*
 // @grant        none
 // ==/UserScript==
@@ -868,7 +868,7 @@ var pythia = {
     // Render Pythia menu
     renderPythiaMenu: function() {
         var menuHtml = "<div id='pythia_menu'>";
-        menuHtml += "<div class='menu_header'><h3>PYTHIA</h3></div>";
+        menuHtml += "<div class='menu_header'><h3>PYTHIA v" + GM_info.script.version + "</h3></div>";
 
         // Player cards setting
         menuHtml += "<div id='pythia_menu_playercards' class='menu_item'><span class='title'>Player Cards:</span>";
@@ -989,12 +989,14 @@ var pythia = {
 
     // Set Pythia CSS styles
     setStyles: function() {
+        this.dojo.query("body").addClass("pythia_enabled");
         this.dojo.place(
             "<style type='text/css' id='Pythia_Styles'>" +
-            ".sw_coins.pythia_enabled { top: 50px; } " +
-            ".arena_mode .player_elo_wrap { visibility: visible; }" + 
-            "#player_board_wrap_" + this.mainPlayer + " .sw_coins { top: 0px; } " +
-            "#player_hand_wrap { padding-top: 58px; } " +
+            ".pythia_enabled .sw_coins { top: 50px; } " +
+            ".pythia_enabled.arena_mode .player_elo_wrap { visibility: visible; }" + 
+            ".pythia_enabled #player_board_wrap_" + this.mainPlayer + " .sw_coins { top: 0px; } " +
+            ".pythia_enabled #player_hand_wrap { padding-top: 58px; } " +
+            ".pythia_enabled #discarded_wrap h3 { padding-bottom: 60px; } " +
             "." + Player_Cards_Div_Class + " { height: 50px; } " +
             "." + Player_Cards_Div_Class + " div { position: absolute; top: 11px; } " +
             "." + Player_Cards_Div_Class + " div div { background-image: url(" + Cards_Image + "); width: 128px; height: 45px; zoom: 0.6; } " +
