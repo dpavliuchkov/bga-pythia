@@ -3,7 +3,7 @@
 // @description  Visual aid that extends BGA game interface with useful information
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
 // @author       https://github.com/dpavliuchkov
-// @version      0.9.5
+// @version      0.9.6
 // @include      *boardgamearena.com/*
 // @grant        none
 // ==/UserScript==
@@ -351,7 +351,7 @@ var pythia = {
         }
     },
 
-    // If this is the last war - do cleanup
+    // Process war results
     recordWarResults: function(data) {
         if (Enable_Logging) console.log("PYTHIA: war battle happened - I got", data);
 
@@ -365,13 +365,9 @@ var pythia = {
             this.players[data.args.neighbour_id].defeats += 1;
         }
 
+        // If this is the last war - do cleanup
         if (this.currentAge == 3) {
-            // Hide Pythia scores
-            this.dojo.query("." + Player_Score_Span_Class).style("display", "none");
-
-            // Remove Pythia leader & runnerup notation
-            this.dojo.query("." + Player_Leader_Class + ", ." + Player_Runnerup_Class)
-                .removeClass([Player_Leader_Class, Player_Runnerup_Class]);
+            this.finishGame();
         }
     },
 
@@ -658,6 +654,13 @@ var pythia = {
 
         // Clean rendered cards from previous age
         this.dojo.query("." + Player_Cards_Div_Class).forEach(this.dojo.empty);
+    },
+
+    // Cleanup Pythia when the game is done
+    finishGame: function() {
+        this.togglePythiaSettingLeaderRunnerupDisplay(false);
+        this.togglePythiaSettingWarScoresDisplay(false);
+        this.togglePythiaSettingPlayerCardsDisplay(false);
     },
 
     // Add war scores based on the age
