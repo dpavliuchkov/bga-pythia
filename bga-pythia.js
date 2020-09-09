@@ -3,7 +3,7 @@
 // @description  Visual aid that extends BGA game interface with useful information
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
 // @author       https://github.com/dpavliuchkov
-// @version      0.9.4
+// @version      0.9.5
 // @include      *boardgamearena.com/*
 // @grant        none
 // ==/UserScript==
@@ -30,6 +30,7 @@ const Player_Cards_Id_Prefix = "pythia_cards_wrap_";
 const Player_Hand_Card_Id_Prefix = "pythia_hand_card_";
 const Player_Score_Id_Prefix = "pythia_score_";
 const Player_Military_Power_Id_Prefix = "pythia_military_power_";
+const Player_War_Score_Id_Prefix = "pythia_player_war_score_";
 const Player_Cards_Div_Class = "pythia_cards_container";
 const Player_Score_Span_Class = "pythia_score";
 const Player_Leader_Class = "pythia_leader";
@@ -705,7 +706,7 @@ var pythia = {
 
     // Render player containers
     renderPythiaContainers: function(playerId) {
-        // Insert war score container
+        // Insert war score container in scores table
         if (!this.dojo.byId(Player_Score_Id_Prefix + playerId)) {
             this.dojo.place(
                 "<span id='" + Player_Score_Id_Prefix + playerId + "'" +
@@ -714,7 +715,7 @@ var pythia = {
                 "after");
         }
 
-        // Insert military power container
+        // Insert military power container on player board
         if (!this.dojo.byId(Player_Military_Power_Id_Prefix + playerId)) {
             const refNode = this.dojo.query("#" + BGA_Player_Board_Id_Prefix + playerId + " .sw_coins");
             if (refNode && refNode[0]) {
@@ -726,11 +727,23 @@ var pythia = {
             }
         }
 
+        // Insert war score container on player board
+        if (!this.dojo.byId(Player_War_Score_Id_Prefix + playerId)) {
+            const refNode = this.dojo.query("#" + BGA_Player_Board_Id_Prefix + playerId + " .sw_coins");
+            if (refNode && refNode[0]) {
+                this.dojo.place(
+                    "<div id='" + Player_War_Score_Id_Prefix + playerId + "' class='pythia_player_war_score'>" +
+                    "<i class='fa fa-star'></i><span>1</span></div>",
+                    refNode[0],
+                    "first");
+            }
+        }
+
         // Skip card container for main player and if already rendered
         if (playerId == this.mainPlayer || this.dojo.byId(Player_Cards_Id_Prefix + playerId)) {
             return;
         }
-        // Insert card container
+        // Insert card container on player board
         this.dojo.place("<div id='" + Player_Cards_Id_Prefix + playerId + "'" +
             " class='" + Player_Cards_Div_Class + "'></div>",
             BGA_Player_Board_Id_Prefix + playerId,
@@ -791,6 +804,7 @@ var pythia = {
         if (playerScore) {
             const totalScore = this.players[playerId].bgaScore + this.players[playerId].warScore;
             playerScore.innerHTML = " (" + totalScore + ")";
+            this.dojo.query("#" + Player_War_Score_Id_Prefix + playerId + " span")[0].innerHTML = totalScore;
         }
     },
 
@@ -929,8 +943,10 @@ var pythia = {
     togglePythiaSettingWarScoresDisplay: function(pleaseShow) {
         if (pleaseShow) {
             this.dojo.query("." + Player_Score_Span_Class).style("display", "inline");
+            this.dojo.query(".pythia_player_war_score").style("display", "inline");
         } else {
             this.dojo.query("." + Player_Score_Span_Class).style("display", "none");
+            this.dojo.query(".pythia_player_war_score").style("display", "none");
         }
     },
 
@@ -1018,8 +1034,11 @@ var pythia = {
             "." + Card_Worth_Class + " img { width: 48px; }" +
             "." + Card_Worth_Class + " img." + Card_Worth_Coins_Class + " { position: relative; top: -3px; }" +
             ".pythia_player_military_power { display: inline-block; position: relative; top: 3px; }" +
-            ".pythia_player_military_power img { width: 30px; padding: 0 2px 0 4px; }" +
+            ".pythia_player_military_power img { width: 30px; padding: 0 4px; }" +
             ".pythia_player_military_power span { position: relative; top: -7px; }" +
+            ".pythia_player_war_score { display: inline-block; padding-right: 4px; position: relative; top: -1px; }" +
+            ".pythia_player_war_score i { font-size: 32px; }" +
+            ".pythia_player_war_score span { padding-left: 4px; position: relative; top: -3px; }" +
             "</style>", "sevenwonder_wrap", "last");
     }
 };
