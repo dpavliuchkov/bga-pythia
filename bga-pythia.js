@@ -3,7 +3,7 @@
 // @description  Visual aid that extends BGA game interface with useful information
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
 // @author       https://github.com/dpavliuchkov
-// @version      1.0
+// @version      1.0.1
 // @include      *boardgamearena.com/*
 // @grant        none
 // ==/UserScript==
@@ -686,7 +686,7 @@ var pythia = {
 
     // Cleanup Pythia when the game is done
     finishGame: function() {
-        this.togglePythiaSettingRichBoards(false);
+        this.togglePythiaSettingRichBoardsDisplay(false);
         this.togglePythiaSettingWarScoresDisplay(false);
         this.togglePythiaSettingPlayerCardsDisplay(false);
     },
@@ -1030,7 +1030,7 @@ var pythia = {
         this.dojo.query("body").addClass("pythia_enabled");
         this.dojo.place(
             "<style type='text/css' id='Pythia_Styles'>" +
-            ".pythia_player_cards_enabled .sw_coins { top: 50px; } " +
+            ".pythia_player_cards_enabled.sw_coins { top: 50px; } " +
             ".pythia_enabled.arena_mode .player_elo_wrap { visibility: visible; }" +
             ".pythia_enabled #player_board_wrap_" + this.mainPlayer + " .sw_coins { top: 0px; } " +
             ".pythia_enabled #player_hand_wrap { padding-top: 58px; } " +
