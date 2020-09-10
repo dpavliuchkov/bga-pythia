@@ -3,7 +3,7 @@
 // @description  Visual aid that extends BGA game interface with useful information
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
 // @author       https://github.com/dpavliuchkov
-// @version      0.9.6
+// @version      1.0
 // @include      *boardgamearena.com/*
 // @grant        none
 // ==/UserScript==
@@ -20,6 +20,7 @@
 // System variables - don't edit
 const Is_Inside_Game = /\?table=[0-9]*/.test(window.location.href);
 const Cards_Image = "https://x.boardgamearena.net/data/themereleases/current/games/sevenwonders/200213-1215/img/cards.jpg";
+const Cards_Image_V2 = "https://en.1.studio.boardgamearena.com:8083/data/themereleases/current/games/sevenwonders/999999-9999/img/cards_v2.jpg";
 const BGA_Player_Board_Id_Prefix = "player_board_wrap_";
 const BGA_Player_Score_Id_Prefix = "player_score_";
 const Card_Worth_Id_Prefix = "pythia_card_worth_container_";
@@ -84,6 +85,8 @@ var pythia = {
     isStarted: false,
     dojo: null,
     game: null,
+    edition: null,
+    isNewEdition: null,
     mainPlayer: null,
     currentAge: 1,
     playersCount: 0,
@@ -100,13 +103,14 @@ var pythia = {
         }
         this.dojo = window.parent.dojo;
         this.game = window.parent.gameui.gamedatas;
+        this.edition = parseInt(this.game.game_edition);
+        this.isNewEdition = this.edition == 1;
+
         var playerOrder = this.game.playerorder;
         this.playersCount = playerOrder.length;
         this.mainPlayer = playerOrder[0];
         // local storage stores value as strings, so we need to parse "false" and "true" to get boolean
         this.settings = {
-            "enableRecordCards": localStorage.getItem("pythia-seetings-recordcards") === null ?
-                true : String(localStorage.getItem("pythia-seetings-recordcards")) == "true",
             "enableWarScores": localStorage.getItem("pythia-seetings-warscores") === null ?
                 true : String(localStorage.getItem("pythia-seetings-warscores")) == "true",
             "enableLeaderRunnerupPositions": localStorage.getItem("pythia-seetings-leaderrunnerup") === null ?
@@ -126,6 +130,7 @@ var pythia = {
                 warScore: 0,
                 wonder: 0,
                 wonderStages: 0,
+                maxWonderStages: 0,
                 playedCards: {
                     "raw": 0,
                     "man": 0,
@@ -162,7 +167,7 @@ var pythia = {
         this.setStyles();
 
         // Configure Pythia according to settings
-        this.togglePythiaSettingPlayerCardsDisplay(this.settings.enableRecordCards);
+        this.togglePythiaSettingPlayerCardsDisplay(false);
         this.togglePythiaSettingWarScoresDisplay(this.settings.enableWarScores);
         this.togglePythiaSettingLeaderRunnerupDisplay(this.settings.enableLeaderRunnerupPositions);
         this.togglePythiaSettingCardPointsDisplay(this.settings.enableCardPoints);
@@ -180,6 +185,23 @@ var pythia = {
 
         if (Enable_Logging) console.log("PYTHIA: My eyes can see everything!");
         return this;
+    },
+
+    // Record which wonder each player has chosen
+    recordWonderChoice: function(data) {
+        if (Enable_Logging) console.log("PYTHIA: wonders chosen - I got", data);
+
+        // Input check
+        if (!data || !data.args || !data.args.wonders || !this.game || !this.game.wonders) {
+            return;
+        }
+
+        const wonders = Object.keys(data.args.wonders);
+        for (const playerId of wonders) {
+            const wonderId = data.args.wonders[playerId]
+            this.players[playerId].wonder = wonderId;
+            this.players[playerId].maxWonderStages = Object.keys(this.game.wonders[wonderId].stages).length;
+        }
     },
 
     // Check what came to main player in the new hand
@@ -320,21 +342,6 @@ var pythia = {
         }
     },
 
-    // Record which wonder each player has chosen
-    recordWonderChoice: function(data) {
-        if (Enable_Logging) console.log("PYTHIA: wonders chosen - I got", data);
-
-        // Input check
-        if (!data || !data.args || !data.args.wonders) {
-            return;
-        }
-
-        const wonders = Object.keys(data.args.wonders);
-        for (const playerId of wonders) {
-            this.players[playerId].wonder = data.args.wonders[playerId];
-        }
-    },
-
     // Update internal scores as well
     recordScoreUpdate: function(data) {
         if (Enable_Logging) console.log("PYTHIA: scores updated - I got", data);
@@ -407,10 +414,20 @@ var pythia = {
         if (discardWrapper.style.display == "block") {
             const discarded = that.dojo.query("#discarded div");
             for (var i in discarded) {
-                // Calculate card position - the only way to find which card is actually in discard
                 const card = discarded[i];
-                const posX = -parseInt(card.style.width) * parseInt(card.style.backgroundPositionX) / 100;
-                const posY = -parseInt(card.style.height) * parseInt(card.style.backgroundPositionY) / 100;
+                if (!card.style) {
+                    continue;
+                }
+
+                // Calculate card position - the only way to find which card is actually in discard
+                var posX, posY;
+                if (that.isNewEdition) {
+                    posX = -255 * parseInt(card.style.backgroundPositionX) / 100;
+                    posY = -393 * parseInt(card.style.backgroundPositionY) / 100;
+                } else {
+                    posX = -parseInt(card.style.width) * parseInt(card.style.backgroundPositionX) / 100;
+                    posY = -parseInt(card.style.height) * parseInt(card.style.backgroundPositionY) / 100;
+                }
 
                 var cardType = null;
                 for (var j in that.game.card_types) {
@@ -459,13 +476,14 @@ var pythia = {
             case 71:
             case 72:
             case 73:
+            case 80:
                 if (!this.game.card_types[cardType] || !this.game.card_types[cardType].shield) {
                     break;
                 }
                 worth.points = this.calculateMilitaryCardWorth(playerId, parseInt(this.game.card_types[cardType].shield));
                 break;
 
-                // Scientific symbols
+            // Scientific symbols
             case 25:
             case 26:
             case 27:
@@ -485,7 +503,7 @@ var pythia = {
                 worth.points = this.calculateScienceCardWorth(playerId, this.game.card_types[cardType].science);
                 break;
 
-                // Age 2 commerce
+            // Age 2 commerce
             case 41: // Vineyard - coins for brown cards
                 worth.coins = this.players[leftPlayerId].playedCards["raw"] + this.players[rightPlayerId].playedCards["raw"] +
                     this.players[playerId].playedCards["raw"];
@@ -495,7 +513,7 @@ var pythia = {
                     this.players[playerId].playedCards["man"]) * 2;
                 break;
 
-                // Age 3 guilds
+            // Age 3 guilds
             case 51: // Workers guild - brown cards
                 worth.points = this.players[leftPlayerId].playedCards["raw"] + this.players[rightPlayerId].playedCards["raw"];
                 break;
@@ -511,8 +529,14 @@ var pythia = {
             case 55: // Spies guild - red cards
                 worth.points = this.players[leftPlayerId].playedCards["mil"] + this.players[rightPlayerId].playedCards["mil"];
                 break;
-            case 56: // Strategist guild - defeat tokens
-                worth.points = this.players[leftPlayerId].defeats + this.players[rightPlayerId].defeats;
+            case 56:
+                if (this.isNewEdition) {
+                    // Decorators guild - if all stages are built then 7 points
+                    worth.points = this.players[playerId].wonderStages == this.players[playerId].maxWonderStages ? 7 : 0;
+                } else {
+                    // Strategist guild - defeat tokens
+                    worth.points = this.players[leftPlayerId].defeats + this.players[rightPlayerId].defeats;
+                }
                 break;
             case 57: // Shipowners guild - own brown grey purple cards
                 worth.points = this.players[playerId].playedCards["raw"] + this.players[playerId].playedCards["man"] +
@@ -526,7 +550,7 @@ var pythia = {
                     this.players[rightPlayerId].wonderStages;
                 break;
 
-                // Age 3 commerce
+            // Age 3 commerce
             case 66: // Haven - coins and points for own brown cards
                 worth.coins = this.players[playerId].playedCards["raw"];
                 worth.points = this.players[playerId].playedCards["raw"];
@@ -542,6 +566,10 @@ var pythia = {
             case 69: // Arena - coins and points for own wonder stages
                 worth.coins = this.players[playerId].wonderStages * 3;
                 worth.points = this.players[playerId].wonderStages;
+                break
+            case 79: // Ludus - coins and points for own military stages
+                worth.coins = this.players[playerId].playedCards["mil"] * 3;
+                worth.points = this.players[playerId].playedCards["mil"];
                 break;
         }
 
@@ -791,8 +819,8 @@ var pythia = {
                 const tooltipId = "player_hand_item_" + card;
 
                 // Game correctness check
-                if (!window.parent.gameui.addTooltipHtml || !window.parent.gameui.tooltips
-                    || !window.parent.gameui.tooltips[tooltipId] || !window.parent.gameui.tooltips[tooltipId].label) {
+                if (!window.parent.gameui.addTooltipHtml || !window.parent.gameui.tooltips ||
+                    !window.parent.gameui.tooltips[tooltipId] || !window.parent.gameui.tooltips[tooltipId].label) {
                     continue;
                 }
 
@@ -887,10 +915,6 @@ var pythia = {
         var menuHtml = "<div id='pythia_menu'>";
         menuHtml += "<div class='menu_header'><h3>PYTHIA v" + GM_info.script.version + "</h3></div>";
 
-        // Player cards setting
-        menuHtml += "<div id='pythia_menu_playercards' class='menu_item'><span class='title'>Player Cards:</span>";
-        menuHtml += "<span class='status'>Enabled</span><button type='button'>Disable</button></div>";
-
         // War scores setting
         menuHtml += "<div id='pythia_menu_warscores' class='menu_item'><span class='title'>War Scores:</span>";
         menuHtml += "<span class='status'>Enabled</span><button type='button'>Disable</button></div>";
@@ -907,25 +931,17 @@ var pythia = {
         this.dojo.place(menuHtml, "logs_wrap", "before");
 
         // Set correct texts based on settings
-        this.togglePythiaSettingText("pythia_menu_playercards", this.settings.enableRecordCards);
         this.togglePythiaSettingText("pythia_menu_warscores", this.settings.enableWarScores);
         this.togglePythiaSettingText("pythia_menu_leaderrunnerup", this.settings.enableLeaderRunnerupPositions);
         this.togglePythiaSettingText("pythia_menu_cardpoints", this.settings.enableCardPoints);
 
         // Connect event handlers
-        this.dojo.connect(this.dojo.query("button", "pythia_menu_playercards")[0], "onclick", this, "togglePythiaSettingPlayerCards");
         this.dojo.connect(this.dojo.query("button", "pythia_menu_warscores")[0], "onclick", this, "togglePythiaSettingWarScores");
         this.dojo.connect(this.dojo.query("button", "pythia_menu_leaderrunnerup")[0], "onclick", this, "togglePythiaSettingLeaderRunnerup");
         this.dojo.connect(this.dojo.query("button", "pythia_menu_cardpoints")[0], "onclick", this, "togglePythiaSettingCardPoints");
     },
 
     // Enable or disable display of cards in player hands
-    togglePythiaSettingPlayerCards: function(event) {
-        this.settings.enableRecordCards = !this.settings.enableRecordCards;
-        localStorage.setItem("pythia-seetings-recordcards", this.settings.enableRecordCards);
-        this.togglePythiaSettingPlayerCardsDisplay(this.settings.enableRecordCards);
-        this.togglePythiaSettingText(event.target.parentNode.id, this.settings.enableRecordCards);
-    },
     togglePythiaSettingPlayerCardsDisplay: function(pleaseShow) {
         if (pleaseShow) {
             this.dojo.query("." + Player_Cards_Div_Class).style("display", "block");
@@ -1012,14 +1028,15 @@ var pythia = {
         this.dojo.place(
             "<style type='text/css' id='Pythia_Styles'>" +
             ".pythia_enabled .sw_coins { top: 50px; } " +
-            ".pythia_enabled.arena_mode .player_elo_wrap { visibility: visible; }" + 
+            ".pythia_enabled.arena_mode .player_elo_wrap { visibility: visible; }" +
             ".pythia_enabled #player_board_wrap_" + this.mainPlayer + " .sw_coins { top: 0px; } " +
             ".pythia_enabled #player_hand_wrap { padding-top: 58px; } " +
             ".pythia_enabled #discarded_wrap h3 { padding-bottom: 60px; } " +
             "." + Player_Cards_Div_Class + " { height: 50px; } " +
             "." + Player_Cards_Div_Class + " div { position: absolute; top: 11px; } " +
             "." + Player_Cards_Div_Class + " div div { background-image: url(" + Cards_Image + "); width: 128px; height: 45px; zoom: 0.6; } " +
-            "." + Player_Cards_Div_Class + " div div span { position: absolute; top: -25px; font-size: 18px; color: black; } " +
+            // background-size: 1280px 1600px;
+            "." + Player_Cards_Div_Class + " div div span { width: 100%; text-align: center; position: absolute; left: 0; top: -25px; font-size: 18px; color: black; cursor: default; } " +
             "#pythia_menu { font-size: 14px; } " +
             "#pythia_menu .menu_header { margin-bottom: 5px; } " +
             "#pythia_menu .menu_header h3 { display: inline; } " +
@@ -1042,6 +1059,10 @@ var pythia = {
             ".pythia_player_war_score { display: inline-block; padding-right: 4px; position: relative; top: -1px; }" +
             ".pythia_player_war_score i { font-size: 32px; }" +
             ".pythia_player_war_score span { padding-left: 4px; position: relative; top: -3px; }" +
+
+            // New edition styles
+            ".new_edition ." + Player_Cards_Div_Class + " div div { background-image: url(" + Cards_Image_V2 + "); width: 255px; height: 110px; zoom: 0.3; text-align: center;} " +
+            ".new_edition ." + Player_Cards_Div_Class + " div div span { font-size: 18px; top: 7px; } " +
             "</style>", "sevenwonder_wrap", "last");
     }
 };
