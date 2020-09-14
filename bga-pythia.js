@@ -3,7 +3,7 @@
 // @description  Visual aid that extends BGA game interface with useful information
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
 // @author       https://github.com/dpavliuchkov
-// @version      1.0.1
+// @version      1.1
 // @include      *boardgamearena.com/*
 // @grant        none
 // ==/UserScript==
@@ -19,8 +19,8 @@
 
 // System variables - don't edit
 const Is_Inside_Game = /\?table=[0-9]*/.test(window.location.href);
-const Cards_Image = "https://x.boardgamearena.net/data/themereleases/current/games/sevenwonders/200213-1215/img/cards.jpg";
-const Cards_Image_V2 = "https://en.1.studio.boardgamearena.com:8083/data/themereleases/current/games/sevenwonders/999999-9999/img/cards_v2.jpg";
+const Cards_Image = "https://x.boardgamearena.net/data/themereleases/current/games/sevenwonders/200911-1351/img/cards.jpg";
+const Cards_Image_V2 = "https://x.boardgamearena.net/data/themereleases/current/games/sevenwonders/200911-1351/img/cards_v2.jpg";
 const BGA_Player_Board_Id_Prefix = "player_board_wrap_";
 const BGA_Player_Score_Id_Prefix = "player_score_";
 const Card_Worth_Id_Prefix = "pythia_card_worth_container_";
@@ -131,7 +131,7 @@ var pythia = {
                 wonder: 0,
                 wonderStages: 0,
                 maxWonderStages: 0,
-                playedCards: {
+                playedTypes: {
                     "raw": 0,
                     "man": 0,
                     "com": 0,
@@ -139,6 +139,13 @@ var pythia = {
                     "civ": 0,
                     "sci": 0,
                     "gui": 0,
+                },
+                playedCards: {
+                    "lighthouse" : false,
+                    "haven" : false,
+                    "ludus" : false,
+                    "chamberOfCommerce" : false,
+                    "shipownersGuild" : false,
                 },
                 science: {
                     "gears": 0, // 1 in BGA
@@ -248,30 +255,34 @@ var pythia = {
         for (var cardId in data.args.cards) {
             const playedCard = data.args.cards[cardId];
             const originalCard = this.game.card_types[playedCard.type];
-            const player = playedCard.location_arg;
+            const playerId = playedCard.location_arg;
             if (!originalCard.category) return; // Input check
+
             const cardCategory = originalCard.category;
 
             // Track if played card was military
             if (originalCard.shield) {
                 warPlayed = true;
-                this.players[player].shields += originalCard.shield;
-                this.renderMilitaryPower(player);
+                this.players[playerId].shields += originalCard.shield;
+                this.renderMilitaryPower(playerId);
             }
 
             // Update played scientific symbols
             if (originalCard.science) {
-                this.increaseScienceCounter(player, originalCard.science);
+                this.increaseScienceCounter(playerId, originalCard.science);
             }
 
-            // Update played cards array of the player
-            this.players[player].playedCards[cardCategory] += 1;
+            // Update played card types array of the player
+            this.players[playerId].playedTypes[cardCategory] += 1;
+
+            // Track cards that we need for points worth feature
+            this.increaseCardCounter(playerId, playedCard.type);
 
             // Delete played card
-            if (isObjectEmpty(this.players[player].hand)) {
+            if (isObjectEmpty(this.players[playerId].hand)) {
                 continue;
             }
-            delete this.players[player].hand[cardId];
+            delete this.players[playerId].hand[cardId];
         }
         if (warPlayed) {
             this.calculateWarScores();
@@ -464,6 +475,54 @@ var pythia = {
         };
 
         switch (parseInt(cardType)) {
+            // Raw materials
+            case 1:
+            case 2:
+            case 3:
+            case 4:
+            case 5:
+            case 6:
+            case 7:
+            case 8:
+            case 9:
+            case 10:
+            case 28:
+            case 28:
+            case 30:
+            case 31:
+            if (this.players[playerId].playedCards.haven) {
+                worth.points += 1;
+            }
+            if (this.players[playerId].playedCards.shipownersGuild) {
+                worth.points += 1;
+            }
+
+
+            // Manufactured goods
+            case 11:
+            case 12:
+            case 13:
+            case 32:
+            case 33:
+            case 34:
+            case 39:
+            case 40:
+            if (this.players[playerId].playedCards.shipownersGuild) {
+                worth.points += 1;
+            }
+            if (this.players[playerId].playedCards.chamberOfCommerce) {
+                worth.points += 2;
+            }
+
+            // Commercial cards
+            case 18:
+            case 19:
+            case 20:
+            case 21:
+            if (this.players[playerId].playedCards.lighthouse) {
+                worth.points += 1;
+            }
+
             // Military cards
             case 22:
             case 23:
@@ -481,6 +540,9 @@ var pythia = {
                     break;
                 }
                 worth.points = this.calculateMilitaryCardWorth(playerId, parseInt(this.game.card_types[cardType].shield));
+                if (this.players[playerId].playedCards.ludus) {
+                    worth.points += 1;
+                }
                 break;
 
             // Scientific symbols
@@ -505,29 +567,50 @@ var pythia = {
 
             // Age 2 commerce
             case 41: // Vineyard - coins for brown cards
-                worth.coins = this.players[leftPlayerId].playedCards["raw"] + this.players[rightPlayerId].playedCards["raw"] +
-                    this.players[playerId].playedCards["raw"];
+                worth.coins = this.players[leftPlayerId].playedTypes["raw"] + this.players[rightPlayerId].playedTypes["raw"] +
+                    this.players[playerId].playedTypes["raw"];
+                if (this.players[playerId].playedCards.lighthouse) {
+                    worth.points += 1;
+                }
                 break;
             case 42: // Bazaar - coins for grey cards
-                worth.coins = (this.players[leftPlayerId].playedCards["man"] + this.players[rightPlayerId].playedCards["man"] +
-                    this.players[playerId].playedCards["man"]) * 2;
+                worth.coins = (this.players[leftPlayerId].playedTypes["man"] + this.players[rightPlayerId].playedTypes["man"] +
+                    this.players[playerId].playedTypes["man"]) * 2;
+                if (this.players[playerId].playedCards.lighthouse) {
+                    worth.points += 1;
+                }
                 break;
 
             // Age 3 guilds
             case 51: // Workers guild - brown cards
-                worth.points = this.players[leftPlayerId].playedCards["raw"] + this.players[rightPlayerId].playedCards["raw"];
+                worth.points = this.players[leftPlayerId].playedTypes["raw"] + this.players[rightPlayerId].playedTypes["raw"];
+                if (this.players[playerId].playedCards.shipownersGuild) {
+                    worth.points += 1;
+                }
                 break;
             case 52: // Craftsmens guild - grey cards
-                worth.points = 2 * (this.players[leftPlayerId].playedCards["man"] + this.players[rightPlayerId].playedCards["man"]);
+                worth.points = 2 * (this.players[leftPlayerId].playedTypes["man"] + this.players[rightPlayerId].playedTypes["man"]);
+                if (this.players[playerId].playedCards.shipownersGuild) {
+                    worth.points += 1;
+                }
                 break;
             case 53: // Traders guild - yellow cards
-                worth.points = this.players[leftPlayerId].playedCards["com"] + this.players[rightPlayerId].playedCards["com"];
+                worth.points = this.players[leftPlayerId].playedTypes["com"] + this.players[rightPlayerId].playedTypes["com"];
+                if (this.players[playerId].playedCards.shipownersGuild) {
+                    worth.points += 1;
+                }
                 break;
             case 54: // Philosopehrs guild - yellow cards
-                worth.points = this.players[leftPlayerId].playedCards["sci"] + this.players[rightPlayerId].playedCards["sci"];
+                worth.points = this.players[leftPlayerId].playedTypes["sci"] + this.players[rightPlayerId].playedTypes["sci"];
+                if (this.players[playerId].playedCards.shipownersGuild) {
+                    worth.points += 1;
+                }
                 break;
             case 55: // Spies guild - red cards
-                worth.points = this.players[leftPlayerId].playedCards["mil"] + this.players[rightPlayerId].playedCards["mil"];
+                worth.points = this.players[leftPlayerId].playedTypes["mil"] + this.players[rightPlayerId].playedTypes["mil"];
+                if (this.players[playerId].playedCards.shipownersGuild) {
+                    worth.points += 1;
+                }
                 break;
             case 56:
                 if (this.isNewEdition) {
@@ -537,39 +620,60 @@ var pythia = {
                     // Strategist guild - defeat tokens
                     worth.points = this.players[leftPlayerId].defeats + this.players[rightPlayerId].defeats;
                 }
+                if (this.players[playerId].playedCards.shipownersGuild) {
+                    worth.points += 1;
+                }
                 break;
             case 57: // Shipowners guild - own brown grey purple cards
-                worth.points = this.players[playerId].playedCards["raw"] + this.players[playerId].playedCards["man"] +
-                    this.players[playerId].playedCards["gui"] + 1;
+                worth.points = this.players[playerId].playedTypes["raw"] + this.players[playerId].playedTypes["man"] +
+                    this.players[playerId].playedTypes["gui"] + 1;
                 break;
-            case 59: // Magistrate guild - blue cards
-                worth.points = this.players[leftPlayerId].playedCards["civ"] + this.players[rightPlayerId].playedCards["civ"];
+            case 59: // Magistrates guild - blue cards
+                worth.points = this.players[leftPlayerId].playedTypes["civ"] + this.players[rightPlayerId].playedTypes["civ"];
+                if (this.players[playerId].playedCards.shipownersGuild) {
+                    worth.points += 1;
+                }
                 break;
             case 60: // Builders guild - wonder stages]
                 worth.points = this.players[playerId].wonderStages + this.players[leftPlayerId].wonderStages +
                     this.players[rightPlayerId].wonderStages;
+                if (this.players[playerId].playedCards.shipownersGuild) {
+                    worth.points += 1;
+                }
                 break;
 
             // Age 3 commerce
             case 66: // Haven - coins and points for own brown cards
-                worth.coins = this.players[playerId].playedCards["raw"];
-                worth.points = this.players[playerId].playedCards["raw"];
+                worth.coins = this.players[playerId].playedTypes["raw"];
+                worth.points = this.players[playerId].playedTypes["raw"];
+                if (this.players[playerId].playedCards.lighthouse) {
+                    worth.points += 1;
+                }
                 break;
             case 67: // Lighthouse - coins and points for own yellow cards
-                worth.coins = this.players[playerId].playedCards["com"] + 1;
-                worth.points = this.players[playerId].playedCards["com"] + 1;
+                worth.coins = this.players[playerId].playedTypes["com"] + 1;
+                worth.points = this.players[playerId].playedTypes["com"] + 1;
                 break;
             case 68: // Chamber of commerce - coins and points for own grey cards
-                worth.coins = this.players[playerId].playedCards["man"] * 2;
-                worth.points = this.players[playerId].playedCards["man"] * 2;
+                worth.coins = this.players[playerId].playedTypes["man"] * 2;
+                worth.points = this.players[playerId].playedTypes["man"] * 2;
+                if (this.players[playerId].playedCards.lighthouse) {
+                    worth.points += 1;
+                }
                 break;
             case 69: // Arena - coins and points for own wonder stages
                 worth.coins = this.players[playerId].wonderStages * 3;
                 worth.points = this.players[playerId].wonderStages;
+                if (this.players[playerId].playedCards.lighthouse) {
+                    worth.points += 1;
+                }
                 break
             case 79: // Ludus - coins and points for own military stages
-                worth.coins = this.players[playerId].playedCards["mil"] * 3;
-                worth.points = this.players[playerId].playedCards["mil"];
+                worth.coins = this.players[playerId].playedTypes["mil"] * 3;
+                worth.points = this.players[playerId].playedTypes["mil"];
+                if (this.players[playerId].playedCards.lighthouse) {
+                    worth.points += 1;
+                }
                 break;
         }
 
@@ -716,6 +820,27 @@ var pythia = {
                 this.players[player].science.jokers += 1;
                 break;
             default:
+                break;
+        }
+    },
+
+    // Track if certain card was player by hte player, needed for Card Worth function
+    increaseCardCounter: function(playerId, cardType) {
+        switch (parseInt(cardType)) {
+            case 57: // Shipowners guild - own brown grey purple cards
+                this.players[playerId].playedCards.shipownersGuild = true;
+                break;
+            case 66: // Haven - coins and points for own brown cards
+                this.players[playerId].playedCards.haven = true;
+                break;
+            case 67: // Lighthouse - coins and points for own yellow cards
+                this.players[playerId].playedCards.lighthouse = true;
+                break;
+            case 68: // Chamber of commerce - coins and points for own grey cards
+                this.players[playerId].playedCards.chamberOfCommerce = true;
+                break;
+            case 79: // Ludus - coins and points for own military stages
+                this.players[playerId].playedCards.ludus = true;
                 break;
         }
     },
@@ -1049,10 +1174,12 @@ var pythia = {
             "#pythia_menu .menu_item span.status.enabled { color: green; } " +
             "#pythia_menu .menu_item span.status.disabled { color: red; } " +
             "#pythia_menu .menu_item button { width: 60px; padding: 3px; border-radius: 5px; margin-left: 10px; } " +
-            "." + Player_Leader_Class + " { border: 5px solid green; } " +
-            "." + Player_Leader_Class + " h3::before { content: '(Leader) '; color: green; float: left; margin-top: -4px; white-space: pre; }" +
-            "." + Player_Runnerup_Class + " { border: 5px solid red; } " +
-            "." + Player_Runnerup_Class + " h3::before { content: '(Runner up) '; color: red; float: left; margin-top: -4px; white-space: pre; }" +
+            "." + Player_Leader_Class + ", ." + Player_Runnerup_Class + " { border: 5px solid; } " +
+            "." + Player_Leader_Class + " { border-color: green; border-style: inset; } " +
+            "." + Player_Runnerup_Class + " { border-color: red; } " +
+            "." + Player_Leader_Class + " h3::before, ." + Player_Runnerup_Class + " h3::before { float: left; margin-top: -4px; white-space: pre; }" +
+            "." + Player_Leader_Class + " h3::before { content: '(Leader) '; color: green; }" +
+            "." + Player_Runnerup_Class + " h3::before { content: '(Runner up) '; color: red; }" +
             "." + Card_Worth_Class + " { position: absolute; top: -53px; left: 6px; width: 128px; text-align: center; }" +
             "." + Card_Worth_Class + " img { width: 48px; }" +
             "." + Card_Worth_Class + " img." + Card_Worth_Coins_Class + " { position: relative; top: -3px; }" +
@@ -1066,6 +1193,9 @@ var pythia = {
             // New edition styles
             ".new_edition ." + Player_Cards_Div_Class + " div div { background-image: url(" + Cards_Image_V2 + "); width: 255px; height: 110px; zoom: 0.3; text-align: center;} " +
             ".new_edition ." + Player_Cards_Div_Class + " div div span { font-size: 18px; top: 7px; } " +
+            ".new_edition .last_board_item { padding-right: 2px; } " +
+            ".new_edition .last_board_item .board_item { border-width: 4px; margin: -2px 0 0 -2px; border-color: greenyellow; border-style: outset; } " +
+            ".new_edition .last_step_item { border-width: 4px; margin: -4px 0 0 -4px; border-color: greenyellow; border-style: outset; } " +
             "</style>", "sevenwonder_wrap", "last");
     }
 };
