@@ -3,7 +3,7 @@
 // @description  Visual aid that extends BGA game interface with useful information
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
 // @author       https://github.com/dpavliuchkov
-// @version      1.2
+// @version      1.3
 // @include      *boardgamearena.com/*
 // @grant        none
 // ==/UserScript==
@@ -121,6 +121,10 @@ var pythia = {
                 true : String(localStorage.getItem("pythia-seetings-cardpoints")) == "true",
             "enableHD": localStorage.getItem("pythia-seetings-hd") === null ?
                 true : String(localStorage.getItem("pythia-seetings-hd")) == "true",
+            "enableFullwidth": localStorage.getItem("pythia-seetings-fullwidth") === null ?
+                false : String(localStorage.getItem("pythia-seetings-fullwidth")) == "true",
+            "showMenu": localStorage.getItem("pythia-seetings-showmenu") === null ?
+                true : String(localStorage.getItem("pythia-seetings-showmenu")) == "true",
         };
 
         for (var i = 0; i < this.playersCount; i++) {
@@ -145,11 +149,11 @@ var pythia = {
                     "gui": 0,
                 },
                 playedCards: {
-                    "lighthouse" : false,
-                    "haven" : false,
-                    "ludus" : false,
-                    "chamberOfCommerce" : false,
-                    "shipownersGuild" : false,
+                    "lighthouse": false,
+                    "haven": false,
+                    "ludus": false,
+                    "chamberOfCommerce": false,
+                    "shipownersGuild": false,
                 },
                 science: {
                     "gears": 0, // 1 in BGA
@@ -183,6 +187,7 @@ var pythia = {
         this.togglePythiaSettingRichBoardsDisplay(this.settings.enableRichBoards);
         this.togglePythiaSettingCardPointsDisplay(this.settings.enableCardPoints);
         this.togglePythiaSettingHDDisplay(this.settings.enableHD);
+        this.togglePythiaSettingFullwidthDisplay(this.settings.enableFullwidth);
 
         // Connect event handlers to follow game progress
         this.dojo.subscribe("newHand", this, "recordHand");
@@ -224,9 +229,6 @@ var pythia = {
         if (!data || !data.args || !data.args.cards) {
             return;
         }
-
-        // Update leader & runnerup positions
-        this.renderLeaderRunnerup();
 
         // Rotate old hands and render cards
         if (!this.isFirstTurn()) {
@@ -372,6 +374,9 @@ var pythia = {
             this.players[playerId].bgaScore = data.args.scores[playerId];
             this.renderPlayerScore(playerId);
         }
+
+        // Update leader & runnerup positions
+        this.renderLeaderRunnerup();
     },
 
     // Process war results
@@ -495,12 +500,13 @@ var pythia = {
             case 28:
             case 30:
             case 31:
-            if (this.players[playerId].playedCards.haven) {
-                worth.points += 1;
-            }
-            if (this.players[playerId].playedCards.shipownersGuild) {
-                worth.points += 1;
-            }
+                if (this.players[playerId].playedCards.haven) {
+                    worth.points += 1;
+                }
+                if (this.players[playerId].playedCards.shipownersGuild) {
+                    worth.points += 1;
+                }
+                break;
 
 
             // Manufactured goods
@@ -512,21 +518,23 @@ var pythia = {
             case 34:
             case 39:
             case 40:
-            if (this.players[playerId].playedCards.shipownersGuild) {
-                worth.points += 1;
-            }
-            if (this.players[playerId].playedCards.chamberOfCommerce) {
-                worth.points += 2;
-            }
+                if (this.players[playerId].playedCards.shipownersGuild) {
+                    worth.points += 1;
+                }
+                if (this.players[playerId].playedCards.chamberOfCommerce) {
+                    worth.points += 2;
+                }
+                break;
 
             // Commercial cards
             case 18:
             case 19:
             case 20:
             case 21:
-            if (this.players[playerId].playedCards.lighthouse) {
-                worth.points += 1;
-            }
+                if (this.players[playerId].playedCards.lighthouse) {
+                    worth.points += 1;
+                }
+                break;
 
             // Military cards
             case 22:
@@ -578,6 +586,7 @@ var pythia = {
                     worth.points += 1;
                 }
                 break;
+
             case 42: // Bazaar - coins for grey cards
                 worth.coins = (this.players[leftPlayerId].playedTypes["man"] + this.players[rightPlayerId].playedTypes["man"] +
                     this.players[playerId].playedTypes["man"]) * 2;
@@ -871,7 +880,7 @@ var pythia = {
         if (!this.dojo.byId(Player_Score_Id_Prefix + playerId)) {
             this.dojo.place(
                 "<span id='" + Player_Score_Id_Prefix + playerId + "'" +
-                "class='player_score_value " + Player_Score_Span_Class + "'></span>",
+                "class='player_score_value " + Player_Score_Span_Class + "'> (1)</span>",
                 BGA_Player_Score_Id_Prefix + playerId,
                 "after");
         }
@@ -1011,8 +1020,8 @@ var pythia = {
         this.dojo.destroy(containerId);
 
         // Build HTML
-        const displayStyle = this.settings.enableCardPoints ? "block" : "none";
-        var html = "<span id='" + containerId + "' class='" + Card_Worth_Class + "' style='display:" + displayStyle + ";'>";
+        const extraClass = this.settings.enableCardPoints ? "" : "pythia_hidden";
+        var html = "<span id='" + containerId + "' class='" + Card_Worth_Class + " " + extraClass + "'>";
         if (coinsWorth !== null) {
             html += "<img class='" + Card_Worth_Coins_Class + "' src='" + Coins_Image[coinsWorth] + "' />";
         }
@@ -1043,7 +1052,21 @@ var pythia = {
     // Render Pythia menu
     renderPythiaMenu: function() {
         var menuHtml = "<div id='pythia_menu'>";
-        menuHtml += "<div class='menu_header'><h3>PYTHIA v" + GM_info.script.version + "</h3></div>";
+        menuHtml += "<div class='menu_header'>";
+        menuHtml += "<h3>PYTHIA v" + GM_info.script.version + "</h3>";
+
+        // Show or hide Pythia menu based on the setting
+        if (this.settings.showMenu) {
+            menuHtml += "<div id='pythia_menu_list_toggle' class='toggle_container'><a href='javascript:void(0)' class='collapser' data-target='#pythia_menu .menu_content'>(collapse menu)</a>";
+            menuHtml += "<a href='javascript:void(0)' class='expander pythia_hidden' data-target='#pythia_menu .menu_content'>(expand menu)</a>";
+            menuHtml += "</div></div>";
+            menuHtml += "<div class='menu_content'>";
+        } else {
+            menuHtml += "<div id='pythia_menu_list_toggle' class='toggle_container'><a href='javascript:void(0)' class='collapser pythia_hidden' data-target='#pythia_menu .menu_content'>(collapse menu)</a>";
+            menuHtml += "<a href='javascript:void(0)' class='expander' data-target='#pythia_menu .menu_content'>(expand menu)</a>";
+            menuHtml += "</div></div>";
+            menuHtml += "<div class='menu_content pythia_hidden'>";
+        }
 
         // Card Points setting
         menuHtml += "<div id='pythia_menu_cardpoints' class='menu_item'><span class='title'>Cards Worth:</span>";
@@ -1061,6 +1084,11 @@ var pythia = {
         menuHtml += "<div id='pythia_menu_hd' class='menu_item'><span class='title'>HD Images:</span>";
         menuHtml += "<span class='status'>Enabled</span><button type='button'>Disable</button></div>";
 
+        // Fullwidth setting
+        menuHtml += "<div id='pythia_menu_fullwidth' class='menu_item'><span class='title'>Full Width:</span>";
+        menuHtml += "<span class='status'>Enabled</span><button type='button'>Disable</button></div>";
+
+        menuHtml += "</div>";
         menuHtml += "</div>";
         this.dojo.place(menuHtml, "logs_wrap", "before");
 
@@ -1069,21 +1097,29 @@ var pythia = {
         this.togglePythiaSettingText("pythia_menu_richboards", this.settings.enableRichBoards);
         this.togglePythiaSettingText("pythia_menu_cardpoints", this.settings.enableCardPoints);
         this.togglePythiaSettingText("pythia_menu_hd", this.settings.enableHD);
+        this.togglePythiaSettingText("pythia_menu_fullwidth", this.settings.enableFullwidth);
 
         // Connect event handlers
         this.dojo.connect(this.dojo.query("button", "pythia_menu_warscores")[0], "onclick", this, "togglePythiaSettingWarScores");
         this.dojo.connect(this.dojo.query("button", "pythia_menu_richboards")[0], "onclick", this, "togglePythiaSettingRichBoards");
         this.dojo.connect(this.dojo.query("button", "pythia_menu_cardpoints")[0], "onclick", this, "togglePythiaSettingCardPoints");
         this.dojo.connect(this.dojo.query("button", "pythia_menu_hd")[0], "onclick", this, "togglePythiaSettingHD");
+        this.dojo.connect(this.dojo.query("button", "pythia_menu_fullwidth")[0], "onclick", this, "togglePythiaSettingFullwidth");
+
+        // Expand & collapse menu handlers
+        this.dojo.connect(this.dojo.query(".menu_header .collapser")[0], "onclick", this, "togglePythiaSettingMenu");
+        this.dojo.connect(this.dojo.query(".menu_header .expander")[0], "onclick", this, "togglePythiaSettingMenu");
+        this.dojo.connect(this.dojo.query(".menu_header .collapser")[0], "onclick", this, "toggleCollapserExpander");
+        this.dojo.connect(this.dojo.query(".menu_header .expander")[0], "onclick", this, "toggleCollapserExpander");
     },
 
     // Enable or disable display of cards in player hands
     togglePythiaSettingPlayerCardsDisplay: function(pleaseShow) {
         if (pleaseShow) {
-            this.dojo.query("." + Player_Cards_Div_Class).style("display", "block");
+            this.dojo.query("." + Player_Cards_Div_Class).removeClass("pythia_hidden");
             this.dojo.query(".sw_coins", "boardspaces").addClass("pythia_player_cards_enabled");
         } else {
-            this.dojo.query("." + Player_Cards_Div_Class).style("display", "none");
+            this.dojo.query("." + Player_Cards_Div_Class).addClass("pythia_hidden");
             this.dojo.query(".sw_coins", "boardspaces").removeClass("pythia_player_cards_enabled");
         }
     },
@@ -1097,9 +1133,9 @@ var pythia = {
     },
     togglePythiaSettingWarScoresDisplay: function(pleaseShow) {
         if (pleaseShow) {
-            this.dojo.query("." + Player_Score_Span_Class).style("display", "inline");
+            this.dojo.query("." + Player_Score_Span_Class).removeClass("pythia_hidden");
         } else {
-            this.dojo.query("." + Player_Score_Span_Class).style("display", "none");
+            this.dojo.query("." + Player_Score_Span_Class).addClass("pythia_hidden");
         }
     },
 
@@ -1113,14 +1149,14 @@ var pythia = {
     togglePythiaSettingRichBoardsDisplay: function(pleaseShow) {
         if (pleaseShow) {
             this.renderLeaderRunnerup();
-            this.dojo.query(".pythia_player_war_score").style("display", "inline");
-            this.dojo.query(".pythia_player_military_power").style("display", "inline");
+            this.dojo.query(".pythia_player_war_score").removeClass("pythia_hidden");
+            this.dojo.query(".pythia_player_military_power").removeClass("pythia_hidden");
         } else {
             this.dojo.query("." + Player_Leader_Class + ", ." + Player_Runnerup_Class)
                 .removeClass([Player_Leader_Class, Player_Runnerup_Class]);
 
-            this.dojo.query(".pythia_player_war_score").style("display", "none");
-            this.dojo.query(".pythia_player_military_power").style("display", "none");
+            this.dojo.query(".pythia_player_war_score").addClass("pythia_hidden");
+            this.dojo.query(".pythia_player_military_power").addClass("pythia_hidden");
         }
     },
 
@@ -1133,9 +1169,9 @@ var pythia = {
     },
     togglePythiaSettingCardPointsDisplay: function(pleaseShow) {
         if (pleaseShow) {
-            this.dojo.query("." + Card_Worth_Class).style("display", "block");
+            this.dojo.query("." + Card_Worth_Class).removeClass("pythia_hidden");
         } else {
-            this.dojo.query("." + Card_Worth_Class).style("display", "none");
+            this.dojo.query("." + Card_Worth_Class).addClass("pythia_hidden");
         }
     },
 
@@ -1147,11 +1183,25 @@ var pythia = {
         this.togglePythiaSettingText(event.target.parentNode.id, this.settings.enableHD);
     },
     togglePythiaSettingHDDisplay: function(pleaseShow) {
-        if (pleaseShow) {
-            this.dojo.query("body").addClass("pythia_hd");
-        } else {
-            this.dojo.query("body").removeClass("pythia_hd");
-        }
+        this.dojo.query("body").toggleClass("pythia_hd", pleaseShow);
+    },
+
+    // Hide or show elements for fullwidth mode
+    togglePythiaSettingFullwidth: function(event) {
+        this.settings.enableFullwidth = !this.settings.enableFullwidth;
+        localStorage.setItem("pythia-seetings-fullwidth", this.settings.enableFullwidth);
+        this.togglePythiaSettingFullwidthDisplay(this.settings.enableFullwidth);
+        this.togglePythiaSettingText(event.target.parentNode.id, this.settings.enableFullwidth);
+    },
+    togglePythiaSettingFullwidthDisplay: function(pleaseShow) {
+        this.dojo.query("body").toggleClass("pythia_fullwidth", pleaseShow);
+        this.dojo.toggleClass("right-side-first-part", "pythia_hidden", pleaseShow);
+        this.dojo.toggleClass("logs_wrap", "pythia_hidden", pleaseShow);
+    },
+
+    togglePythiaSettingMenu: function(event) {
+        this.settings.showMenu = event.target.className == "expander";
+        localStorage.setItem("pythia-seetings-showmenu", this.settings.showMenu);
     },
 
     // Switch enable/disable text in Pythia settings
@@ -1171,6 +1221,12 @@ var pythia = {
         }
     },
 
+    // Toggle hide / show of any visual element given data-target
+    toggleCollapserExpander: function(event) {
+        this.dojo.query(".collapser, .expander", event.target.parentNode).toggleClass("pythia_hidden");
+        this.dojo.query(event.target.getAttribute('data-target')).toggleClass("pythia_hidden");
+    },
+
     // Is this the first turn of the age?
     isFirstTurn: function() {
         return isObjectEmpty(this.players[this.mainPlayer].hand);
@@ -1181,40 +1237,58 @@ var pythia = {
         this.dojo.query("body").addClass("pythia_enabled");
         this.dojo.place(
             "<style type='text/css' id='Pythia_Styles'>" +
+            // Generic settings
             ".pythia_player_cards_enabled.sw_coins { top: 50px; } " +
             ".pythia_enabled.arena_mode .player_elo_wrap { visibility: visible; }" +
             ".pythia_enabled #player_board_wrap_" + this.mainPlayer + " .sw_coins { top: 0px; } " +
             ".pythia_enabled #player_hand_wrap { padding-top: 58px; } " +
             ".pythia_enabled #discarded_wrap h3 { padding-bottom: 60px; } " +
-            "." + Player_Cards_Div_Class + " { height: 50px; } " +
-            "." + Player_Cards_Div_Class + " div { position: absolute; top: 11px; } " +
-            "." + Player_Cards_Div_Class + " div div { background-image: url(" + Cards_Image + "); width: 128px; height: 45px; zoom: 0.6; } " +
-            // background-size: 1280px 1600px;
-            "." + Player_Cards_Div_Class + " div div span { width: 100%; text-align: center; position: absolute; left: 0; top: -25px; font-size: 18px; color: black; cursor: default; } " +
-            "#pythia_menu { font-size: 14px; margin-left: 5px; } " +
-            "#pythia_menu .menu_header { margin-bottom: 5px; } " +
+            ".pythia_enabled #howto_tutorial { display: none; } " +
+            ".pythia_enabled .pythia_hidden { display: none; } " +
+            ".pythia_enabled .toggle_container { display: inline; } " +
+
+            // Pythia menu
+            "#pythia_menu { font-size: 14px; padding: 10px; position: relative; background-color: #e9d6bf; border: 1px solid black; border-radius: 5px; } " +
             "#pythia_menu .menu_header h3 { display: inline; } " +
-            "#pythia_menu .menu_item { height: 26px; margin-left: 10px; } " +
+            "#pythia_menu .menu_header a { margin-left: 5px; } " +
+            "#pythia_menu .menu_content { margin-top: 10px; } " +
+            "#pythia_menu .menu_item { height: 26px; } " +
             "#pythia_menu .menu_item span.title { width: 90px; display: inline-block;} " +
-            "#pythia_menu .menu_item span.status { text-align: center; width: 60px; display: inline-block; } " +
+            "#pythia_menu .menu_item span.status { text-align: center; width: 55px; display: inline-block; } " +
             "#pythia_menu .menu_item span.status.enabled { color: green; } " +
             "#pythia_menu .menu_item span.status.disabled { color: red; } " +
             "#pythia_menu .menu_item button { width: 60px; padding: 3px; border-radius: 5px; margin-left: 10px; } " +
+
+            // Player cards
+            "." + Player_Cards_Div_Class + " { display: block; height: 50px; } " +
+            "." + Player_Cards_Div_Class + " div { position: absolute; top: 11px; } " +
+            "." + Player_Cards_Div_Class + " div div { background-image: url(" + Cards_Image + "); width: 128px; height: 45px; zoom: 0.6; } " +
+            "." + Player_Cards_Div_Class + " div div span { width: 100%; text-align: center; position: absolute; left: 0; top: -25px; font-size: 18px; color: black; cursor: default; } " +
+
+            // Rich boards
             "." + Player_Leader_Class + ", ." + Player_Runnerup_Class + " { border: 5px solid; } " +
             "." + Player_Leader_Class + " { border-color: green; } " +
             "." + Player_Runnerup_Class + " { border-color: red; border-style: inset; } " +
             "." + Player_Leader_Class + " h3::before, ." + Player_Runnerup_Class + " h3::before { float: left; margin-top: -4px; white-space: pre; }" +
             "." + Player_Leader_Class + " h3::before { content: '(Leader) '; color: green; }" +
             "." + Player_Runnerup_Class + " h3::before { content: '(Runner up) '; color: red; }" +
-            "." + Card_Worth_Class + " { position: absolute; top: -53px; left: 6px; width: 128px; text-align: center; }" +
-            "." + Card_Worth_Class + " img { width: 48px; }" +
-            "." + Card_Worth_Class + " img." + Card_Worth_Coins_Class + " { position: relative; top: -3px; }" +
             ".pythia_player_military_power { display: inline; position: relative; top: 3px; }" +
             ".pythia_player_military_power img { width: 30px; padding: 0 4px; }" +
             ".pythia_player_military_power span { position: relative; top: -7px; }" +
             ".pythia_player_war_score { display: inline; padding-right: 4px; position: relative; top: -1px; }" +
             ".pythia_player_war_score i { font-size: 32px; }" +
             ".pythia_player_war_score span { padding-left: 4px; position: relative; top: -3px; }" +
+
+            // Cards worth
+            "." + Card_Worth_Class + " { position: absolute; top: -53px; left: 6px; width: 128px; text-align: center; }" +
+            "." + Card_Worth_Class + " img { width: 48px; }" +
+            "." + Card_Worth_Class + " img." + Card_Worth_Coins_Class + " { position: relative; top: -3px; }" +
+
+            // War scores
+            "." + Player_Score_Span_Class + " { display: inline; }" +
+
+            // Fullwidth view
+            ".pythia_fullwidth #left-side { margin-right: 0px; } " +
 
             // New edition styles
             ".new_edition ." + Player_Cards_Div_Class + " div div { background-image: url(" + Cards_Image_V2 + "); width: 255px; height: 110px; zoom: 0.3; text-align: center;} " +
@@ -1223,7 +1297,9 @@ var pythia = {
             ".new_edition .last_board_item .board_item { border-width: 4px; margin: -2px 0 0 -2px; border-color: greenyellow; border-style: outset; } " +
             ".new_edition .last_step_item { border-width: 4px; margin: -4px 0 0 -4px; border-color: greenyellow; border-style: outset; } " +
 
+            // New edition HD boards
             ".new_edition.pythia_hd .wonder_face, .new_edition.pythia_hd .player_board_wonder { background-size: 450px 3122px; background-image: url(" + HD_Boards + "); }" +
+
             "</style>", "sevenwonder_wrap", "last");
     }
 };
@@ -1247,10 +1323,11 @@ window.onload = async function() {
         }
 
         // Prevent multiple launches
-        if (window.parent.pythia && window.parent.pythia.isStarted) {
+        if (window.parent.isPythiaStarted) {
             return;
         } else {
             if (Enable_Logging) console.log("PYTHIA: I have come to serve you");
+            window.parent.isPythiaStarted = true;
             window.parent.pythia = pythia.init();
         }
     }
