@@ -3,7 +3,7 @@
 // @description  Visual aid that extends BGA game interface with useful information
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
 // @author       https://github.com/dpavliuchkov
-// @version      1.3
+// @version      1.3.1
 // @include      *boardgamearena.com/*
 // @grant        none
 // ==/UserScript==
@@ -78,13 +78,14 @@ const Coins_Image = {
     14: "https://github.com/dpavliuchkov/bga-pythia/blob/master/images/14%20coins.png?raw=true",
 };
 const Military_Power_Icon = "https://github.com/dpavliuchkov/bga-pythia/blob/master/images/military-power-icon.png?raw=true";
-const HD_Boards = "https://github.com/dpavliuchkov/bga-pythia/blob/master/images/boards_hd.jpg?raw=true&version=1";
+const HD_Boards = "https://github.com/dpavliuchkov/bga-pythia/blob/master/images/boards_hd.jpg?raw=true";
 const HD_Cards = "https://github.com/dpavliuchkov/bga-pythia/blob/master/images/cards_hd.jpg?raw=true&version=1";
 const Enable_Logging = false;
 
 // Main Pythia object
 var pythia = {
     isStarted: false,
+    isFinished: false,
     dojo: null,
     game: null,
     edition: null,
@@ -804,6 +805,7 @@ var pythia = {
 
     // Cleanup Pythia when the game is done
     finishGame: function() {
+        this.isFinished = true;
         this.togglePythiaSettingRichBoardsDisplay(false);
         this.togglePythiaSettingWarScoresDisplay(false);
         this.togglePythiaSettingPlayerCardsDisplay(false);
@@ -903,7 +905,7 @@ var pythia = {
             if (refNode && refNode[0]) {
                 this.dojo.place(
                     "<div id='" + Player_War_Score_Id_Prefix + playerId + "' class='pythia_player_war_score'>" +
-                    "<i class='fa fa-star'></i><span>1</span></div>",
+                    "<i class='fa fa-star'></i><span>1 (1)</span></div>",
                     refNode[0],
                     "first");
             }
@@ -970,17 +972,22 @@ var pythia = {
 
     // Update total player score
     renderPlayerScore: function(playerId, score = 0) {
+        if (this.isFinished) {
+            return;
+        }
+
         var playerScore = this.dojo.byId(Player_Score_Id_Prefix + playerId);
         if (playerScore) {
             const totalScore = this.players[playerId].bgaScore + this.players[playerId].warScore;
             playerScore.innerHTML = " (" + totalScore + ")";
-            this.dojo.query("#" + Player_War_Score_Id_Prefix + playerId + " span")[0].innerHTML = totalScore;
+            this.dojo.query("#" + Player_War_Score_Id_Prefix + playerId + " span")[0]
+                .innerHTML = this.players[playerId].bgaScore + " (" + totalScore + ")";
         }
     },
 
     // Add border and position of leader and runnerup players
     renderLeaderRunnerup: function() {
-        if (!this.settings.enableRichBoards) {
+        if (!this.settings.enableRichBoards || this.isFinished) {
             return;
         }
 
@@ -1039,7 +1046,7 @@ var pythia = {
 
     // Render shields icon next to player coins
     renderMilitaryPower: function(playerId) {
-        if (!playerId || !this.players[playerId]) {
+        if (!playerId || !this.players[playerId] || this.isFinished) {
             return;
         }
 
@@ -1298,6 +1305,8 @@ var pythia = {
             ".new_edition .last_step_item { border-width: 4px; margin: -4px 0 0 -4px; border-color: greenyellow; border-style: outset; } " +
 
             // New edition HD boards
+            "#pythia_menu_hd { display: none; } " +
+            ".new_edition #pythia_menu_hd { display: block; } " + 
             ".new_edition.pythia_hd .wonder_face, .new_edition.pythia_hd .player_board_wonder { background-size: 450px 3122px; background-image: url(" + HD_Boards + "); }" +
 
             "</style>", "sevenwonder_wrap", "last");
