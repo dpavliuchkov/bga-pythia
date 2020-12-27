@@ -3,7 +3,7 @@
 // @description  Visual aid that extends BGA game interface with useful information
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
 // @author       https://github.com/dpavliuchkov
-// @version      1.3.1
+// @version      1.3.2
 // @include      *boardgamearena.com/*
 // @grant        none
 // ==/UserScript==
@@ -333,7 +333,85 @@ var pythia = {
 
         const playerId = data.args.player_id;
         const stage = data.args.step;
-        const wonderId = this.players[playerId].wonder;
+        var wonderId = this.players[playerId].wonder;
+
+        // We might have corrupted data, refresh it from the game HTML
+        if (wonderId == 0) {
+            const board = this.dojo.byId("player_board_wonder_" + playerId);
+            switch (board.style.backgroundPositionY) {
+                case "0%":
+                    // Giza A
+                    wonderId = 1;
+                    break;
+
+                case "7.69231%":
+                    // Baby A
+                    wonderId = 2;
+                    break;
+
+                case "15.3846%":
+                    // Oly A
+                    wonderId = 3;
+                    break;
+
+                case "23.0769%":
+                    // Rho A
+                    wonderId = 4;
+                    break;
+
+                case "30.7692%":
+                    // Eph A
+                    wonderId = 5;
+                    break;
+
+                case "38.4615%":
+                    // Alex A
+                    wonderId = 6;
+                    break;
+
+                case "46.1538%":
+                    // Hali A
+                    wonderId = 7;
+                    break;
+
+                case "53.8462%":
+                    // Giza B
+                    wonderId = 8;
+                    break;
+
+                case "61.5385%":
+                    // Baby B
+                    wonderId = 9;
+                    break;
+
+                case "69.2308%":
+                    // Oly B
+                    wonderId = 10;
+                    break;
+
+                case "76.9231%":
+                    // Rho B
+                    wonderId = 11;
+                    break;
+
+                case "84.6154%":
+                    // Eph B
+                    wonderId = 12;
+                    break;
+
+                case "92.3077%":
+                    // Alex B
+                    wonderId = 13;
+                    break;
+
+                case "100%":
+                    // Hali B
+                    wonderId = 14;
+                    break;
+            }
+
+            this.players[playerId].wonder = wonderId;
+        }
 
         this.players[playerId].wonderStages += 1; // increase a counter of built wonder stages
 
@@ -1306,7 +1384,7 @@ var pythia = {
 
             // New edition HD boards
             "#pythia_menu_hd { display: none; } " +
-            ".new_edition #pythia_menu_hd { display: block; } " + 
+            ".new_edition #pythia_menu_hd { display: block; } " +
             ".new_edition.pythia_hd .wonder_face, .new_edition.pythia_hd .player_board_wonder { background-size: 450px 3122px; background-image: url(" + HD_Boards + "); }" +
 
             "</style>", "sevenwonder_wrap", "last");
