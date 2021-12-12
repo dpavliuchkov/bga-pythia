@@ -3,7 +3,8 @@
 // @description  Visual aid that extends BGA game interface with useful information
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
 // @author       https://github.com/dpavliuchkov
-// @version      1.0.0
+// @version      1.1.0
+// @license      MIT
 // @include      *boardgamearena.com/*
 // @grant        none
 // ==/UserScript==
@@ -16,10 +17,13 @@ const Player_Score_Id_Prefix = "pythia_score_";
 const Player_Score_Span_Class = "pythia_score";
 const Player_Leader_Class = "pythia_leader";
 const Enable_Logging = false;
+const Decor_Card_Id = 6;
+const Decor_Points = 4;
 
 // Main Pythia object
 var pythia = {
     isStarted: false,
+    isFinished: false,
     dojo: null,
     game: null,
     players: [],
@@ -37,7 +41,10 @@ var pythia = {
         // Render needed containers
         const keys = Object.keys(this.game.players);
         for (const playerId of keys) {
-            this.players[playerId] = { score : 0 };
+            this.players[playerId] = {
+                score : 0,
+                hasDecor : false,
+            };
             this.renderPythiaContainers(playerId);
         }
 
@@ -45,12 +52,15 @@ var pythia = {
 
         // Connect event handlers to follow game progress
         this.dojo.subscribe("updateScore", this, "recordScoreUpdate");
+        this.dojo.subscribe("getProgress", this, "recordProgressToken");
+        // this.dojo.subscribe("getCard", this, "recordGetCard");
+        this.dojo.subscribe("victory", this, "recordVictory");
 
         if (Enable_Logging) console.log("PYTHIA: My eyes can see everything!");
         return this;
     },
 
-    // Record which wonder each player has chosen
+    // Record new scores
     recordScoreUpdate: function(data) {
         if (Enable_Logging) console.log("PYTHIA: scores updated - I got", data);
 
@@ -66,10 +76,46 @@ var pythia = {
         this.renderLeader();
     },
 
+    // Record which card a player got
+    recordGetCard: function(data) {
+        if (Enable_Logging) console.log("PYTHIA: player took a card - I got", data);
+
+        // Input check
+        if (!data || !data.args || !data.args.card) {
+            return;
+        }
+    },
+
+    // Record which progress a player got
+    recordProgressToken: function(data) {
+        if (Enable_Logging) console.log("PYTHIA: player took a progress token - I got", data);
+
+        // Input check
+        if (!data || !data.args || !data.args.progress) {
+            return;
+        }
+        // Track progress tokens that give victory points
+        const playerId = data.args.player_id;
+        if (data.args.progress.type_arg == Decor_Card_Id) {
+            this.players[playerId].hasDecor = true;
+        }
+    },
+
+    // Record that the game has ended
+    recordVictory: function(data) {
+        if (Enable_Logging) console.log("PYTHIA: game has finished - I got", data);
+        this.isFinished = true;
+    },
+
     // Update total player score
     renderPlayerScore: function(playerId, score = 0) {
         var playerScore = this.dojo.byId(Player_Score_Id_Prefix + playerId);
         if (playerScore) {
+            if (!this.isFinished) {
+                if (this.players[playerId].hasDecor) {
+                    score += Decor_Points;
+                }
+            }
             this.dojo.query("#" + Player_Score_Id_Prefix + playerId)[0]
               .innerHTML = "⭐" + score;
         }
@@ -86,8 +132,8 @@ var pythia = {
         const keys = Object.keys(this.players);
         for (const playerId of keys) {
             if (this.players[playerId].score >= leaderScore) {
-              leaderScore = this.players[playerId].score;
-              leaderId = playerId;
+                leaderScore = this.players[playerId].score;
+                leaderId = playerId;
             }
         }
 
