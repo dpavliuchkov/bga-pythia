@@ -3,20 +3,20 @@
 // @description  Visual aid that extends BGA game interface with useful information
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
 // @author       https://github.com/dpavliuchkov
-// @version      1.1.0
+// @version      1.1.1
 // @license      MIT
 // @include      *boardgamearena.com/*
 // @grant        none
 // ==/UserScript==
 
 // System variables - don't edit
+const Enable_Logging = false;
 const Is_Inside_Game = /\?table=[0-9]*/.test(window.location.href);
 const BGA_Player_Score_Id_Prefix = "player_name_";
 const BGA_Player_Scoreboard_Id_Prefix = "overall_player_board_";
 const Player_Score_Id_Prefix = "pythia_score_";
 const Player_Score_Span_Class = "pythia_score";
 const Player_Leader_Class = "pythia_leader";
-const Enable_Logging = false;
 const Decor_Card_Id = 6;
 const Decor_Points = 4;
 
@@ -149,7 +149,7 @@ var pythia = {
                 "<span id='" + Player_Score_Id_Prefix + playerId + "'" +
                 "class='player_score_value " + Player_Score_Span_Class + "'>⭐0</span>",
                 BGA_Player_Score_Id_Prefix + playerId,
-                "last");
+                "first");
         }
     },
 
