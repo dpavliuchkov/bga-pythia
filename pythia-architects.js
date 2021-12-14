@@ -3,7 +3,7 @@
 // @description  Visual aid that extends BGA game interface with useful information
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
 // @author       https://github.com/dpavliuchkov
-// @version      1.1.1
+// @version      1.1.2
 // @license      MIT
 // @include      *boardgamearena.com/*
 // @grant        none
@@ -12,10 +12,12 @@
 // System variables - don't edit
 const Enable_Logging = false;
 const Is_Inside_Game = /\?table=[0-9]*/.test(window.location.href);
-const BGA_Player_Score_Id_Prefix = "player_name_";
 const BGA_Player_Scoreboard_Id_Prefix = "overall_player_board_";
-const Player_Score_Id_Prefix = "pythia_score_";
-const Player_Score_Span_Class = "pythia_score";
+const BGA_Player_Score_Right_Id_Prefix = "player_name_";
+const BGA_Player_Score_Main_Id_Prefix = "playerarea_";
+const Player_Score_Right_Id_Prefix = "pythia_score_right_";
+const Player_Score_Main_Id_Prefix = "pythia_score_main_";
+const Player_Score_Span_Class = "player_score_value";
 const Player_Leader_Class = "pythia_leader";
 const Decor_Card_Id = 6;
 const Decor_Points = 4;
@@ -109,14 +111,16 @@ var pythia = {
 
     // Update total player score
     renderPlayerScore: function(playerId, score = 0) {
-        var playerScore = this.dojo.byId(Player_Score_Id_Prefix + playerId);
+        var playerScore = this.dojo.byId(Player_Score_Main_Id_Prefix + playerId);
         if (playerScore) {
             if (!this.isFinished) {
                 if (this.players[playerId].hasDecor) {
                     score += Decor_Points;
                 }
             }
-            this.dojo.query("#" + Player_Score_Id_Prefix + playerId)[0]
+            this.dojo.query("#" + Player_Score_Main_Id_Prefix + playerId)[0]
+              .innerHTML = "⭐" + score;
+            this.dojo.query("#" + Player_Score_Right_Id_Prefix + playerId)[0]
               .innerHTML = "⭐" + score;
         }
     },
@@ -139,16 +143,24 @@ var pythia = {
 
         // Mark new leader
         this.dojo.addClass(BGA_Player_Scoreboard_Id_Prefix + leaderId, Player_Leader_Class);
+        this.dojo.addClass(BGA_Player_Score_Main_Id_Prefix + leaderId, Player_Leader_Class);
     },
 
     // Render player containers
     renderPythiaContainers: function(playerId) {
         // Insert war score container in scores table
-        if (!this.dojo.byId(Player_Score_Id_Prefix + playerId)) {
+        if (!this.dojo.byId(Player_Score_Main_Id_Prefix + playerId)) {
+            const mainPlayerArea = this.dojo.query("#" + BGA_Player_Score_Main_Id_Prefix + playerId + " .stw_name_holder");
             this.dojo.place(
-                "<span id='" + Player_Score_Id_Prefix + playerId + "'" +
-                "class='player_score_value " + Player_Score_Span_Class + "'>⭐0</span>",
-                BGA_Player_Score_Id_Prefix + playerId,
+                "<span id='" + Player_Score_Main_Id_Prefix + playerId + "'" +
+                "class='" + Player_Score_Span_Class + "'>⭐0</span>",
+                mainPlayerArea[0],
+                "first");
+
+            this.dojo.place(
+                "<span id='" + Player_Score_Right_Id_Prefix + playerId + "'" +
+                "class='" + Player_Score_Span_Class + "'>⭐0</span>",
+                BGA_Player_Score_Right_Id_Prefix + playerId,
                 "first");
         }
     },
@@ -158,7 +170,9 @@ var pythia = {
         this.dojo.query("body").addClass("pythia_enabled");
         this.dojo.place(
             "<style type='text/css' id='Pythia_Styles'>" +
-                "." + Player_Leader_Class + " .player_board_inner { border: 5px solid; border-color: green; border-radius> 10px; } " +
+                "." + Player_Leader_Class + " .player_board_inner { border: 3px solid; border-color: green; border-radius: 10px; } " +
+                "." + Player_Leader_Class + " .stw_name_holder { border: 3px solid; border-color: green; border-radius: 5px; } " +
+                ".stw_name_holder ." + Player_Score_Span_Class + "{ margin-right: 10px; margin-top: -6px; } " +
             "</style>", "game_play_area_wrap", "last");
     }
 };
