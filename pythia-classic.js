@@ -3,7 +3,7 @@
 // @description  Visual aid that extends BGA game interface with useful information
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
 // @author       https://github.com/dpavliuchkov
-// @version      1.3.2
+// @version      1.3.3
 // @include      *boardgamearena.com/*
 // @grant        none
 // ==/UserScript==
@@ -18,6 +18,7 @@
 // ==/UserScript==
 
 // System variables - don't edit
+const Enable_Logging = false;
 const Is_Inside_Game = /\?table=[0-9]*/.test(window.location.href);
 const Cards_Image = "https://x.boardgamearena.net/data/themereleases/current/games/sevenwonders/200914-1526/img/cards.jpg";
 const Cards_Image_V2 = "https://x.boardgamearena.net/data/themereleases/current/games/sevenwonders/200914-1526/img/cards_v2.jpg";
@@ -80,7 +81,6 @@ const Coins_Image = {
 const Military_Power_Icon = "https://github.com/dpavliuchkov/bga-pythia/blob/master/images/military-power-icon.png?raw=true";
 const HD_Boards = "https://github.com/dpavliuchkov/bga-pythia/blob/master/images/boards_hd.jpg?raw=true";
 const HD_Cards = "https://github.com/dpavliuchkov/bga-pythia/blob/master/images/cards_hd.jpg?raw=true&version=1";
-const Enable_Logging = false;
 
 // Main Pythia object
 var pythia = {
@@ -1401,7 +1401,9 @@ function isObjectEmpty(object) {
 }
 
 // Everything starts here
-window.onload = async function() {
+
+// Everything starts here
+var onload = async function() {
     if (Is_Inside_Game) {
         await sleep(3000); // Wait for BGA to load dojo and 7W scripts
         if (!window.parent || !window.parent.gameui || !window.parent.gameui.game_name ||
@@ -1419,3 +1421,9 @@ window.onload = async function() {
         }
     }
 };
+
+if (document.readyState === "complete") {
+    onload();
+} else {
+    (addEventListener || attachEvent).call(window, addEventListener ? "load" : "onload", onload);
+}
