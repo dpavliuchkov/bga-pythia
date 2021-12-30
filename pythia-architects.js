@@ -3,7 +3,7 @@
 // @description  Visual aid that extends BGA game interface with useful information
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
 // @author       https://github.com/dpavliuchkov
-// @version      1.2
+// @version      1.2.1
 // @license      MIT
 // @include      *boardgamearena.com/*
 // @grant        none
@@ -27,6 +27,7 @@ const Decor_Progress_Type_Id = 6;
 const Strategy_Progress_Type_Id = 8;
 const Education_Progress_Type_Id = 12;
 const Culture_Progress_Type_Id = 13;
+const Cat_Pawn_Type_Id = 17;
 const Decor_Points = 4;
 
 // progress tokens - type args
@@ -47,6 +48,8 @@ const Decor_Points = 4;
 // 15 - ??
 // 16 - stone gold
 // 17 - cat pawn
+
+// big game https://boardgamearena.com/1/sevenwondersarchitects?table=227901083
 
 
 // Main Pythia object
@@ -165,6 +168,11 @@ var pythia = {
 
         // Input check
         if (!data || !data.args || !data.args.progress) {
+            return;
+        }
+
+        // Skip movements of the cat pawn
+        if (data.args.progress.type_arg == Cat_Pawn_Type_Id) {
             return;
         }
 
