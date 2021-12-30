@@ -3,7 +3,7 @@
 // @description  Visual aid that extends BGA game interface with useful information
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
 // @author       https://github.com/dpavliuchkov
-// @version      1.2.1
+// @version      1.2.2
 // @license      MIT
 // @include      *boardgamearena.com/*
 // @grant        none
@@ -410,7 +410,9 @@ function isObjectEmpty(object) {
 }
 
 // Everything starts here
-window.onload = async function() {
+
+// Everything starts here
+var onload = async function() {
     if (Is_Inside_Game) {
         await sleep(3000); // Wait for BGA to load dojo and 7W scripts
         if (!window.parent || !window.parent.gameui || !window.parent.gameui.game_name ||
@@ -428,3 +430,9 @@ window.onload = async function() {
         }
     }
 };
+
+if (document.readyState === "complete") {
+    onload();
+} else {
+    (addEventListener || attachEvent).call(window, addEventListener ? "load" : "onload", onload);
+}
