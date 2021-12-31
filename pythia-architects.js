@@ -3,7 +3,7 @@
 // @description  Visual aid that extends BGA game interface with useful information
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
 // @author       https://github.com/dpavliuchkov
-// @version      1.2.2
+// @version      1.2.3
 // @license      MIT
 // @include      *boardgamearena.com/*
 // @grant        none
@@ -144,7 +144,7 @@ var pythia = {
         }
 
         // Update score values for progress tokens
-        if (playerObjectChanged) {
+        if (playerObjectChanged && playerId == this.mainPlayerId) {
             this.renderProgressWorth();
         }
     },
@@ -192,6 +192,11 @@ var pythia = {
 
         // Remove this token from the open list
         delete this.progressTokens[token.id];
+
+        // Update score values for progress tokens
+        if (playerId == this.mainPlayerId) {
+            this.renderProgressWorth();
+        }
     },
 
     // Record war results
@@ -244,7 +249,7 @@ var pythia = {
 
         // Calculate progress worth in points
         for (var i in this.progressTokens) {
-            const token = this.progressTokens[i];
+            const token = parseInt(this.progressTokens[i]);
             var pointsWorth = 0;
 
             switch (token) {
@@ -261,7 +266,7 @@ var pythia = {
                     break;
 
                 case Education_Progress_Type_Id:
-                    pointsWorth = mainPlayer.totalProgressTokens * 2;
+                    pointsWorth = 2 + mainPlayer.totalProgressTokens * 2;
                     break;
 
                 case Culture_Progress_Type_Id:
