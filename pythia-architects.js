@@ -3,7 +3,7 @@
 // @description  Visual aid that extends BGA game interface with useful information
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
 // @author       https://github.com/dpavliuchkov
-// @version      1.2.3
+// @version      1.2.4
 // @license      MIT
 // @include      *boardgamearena.com/*
 // @grant        none
@@ -397,8 +397,10 @@ var pythia = {
         this.dojo.query("body").addClass("pythia_enabled");
         this.dojo.place(
             "<style type='text/css' id='Pythia_Styles'>" +
-            "." + Player_Leader_Class + " .player_board_inner { border: 3px solid; border-color: green; border-radius: 10px; } " +
-            "." + Player_Leader_Class + " .stw_name_holder { background-color: green; border-radius: 5px; color: white; } " +
+            "." + Player_Leader_Class + " .player-name" +
+              ", ." + Player_Leader_Class + " a" +
+              ", ." + Player_Leader_Class + " .stw_name_holder" +
+              " { background-color: green; border-radius: 5px; color: white ! important; } " +
             ".stw_name_holder ." + Player_Score_Span_Class + " { margin-right: 10px; margin-top: -6px; } " +
             "#science ." + Progress_Worth_Class + "  { display: block; position: relative; top: -32px; left: 25%; height: 25px; width: 34px; background: #F5EDE6; padding-left: 4px; padding-bottom: 3px; border-radius: 10px; } " +
             "</style>", "game_play_area_wrap", "last");
