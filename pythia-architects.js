@@ -3,7 +3,7 @@
 // @description  Visual aid that extends BGA game interface with useful information
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
 // @author       https://github.com/dpavliuchkov
-// @version      1.2.4
+// @version      1.2.5
 // @license      MIT
 // @include      *boardgamearena.com/*
 // @grant        none
@@ -86,6 +86,7 @@ var pythia = {
                 totalProgressTokens: 0,
                 hasDecor: false,
                 hasCulture: false,
+                hasEducation: false,
             };
             this.renderPythiaContainers(playerId);
         }
@@ -186,6 +187,9 @@ var pythia = {
         if (token.type_arg == Culture_Progress_Type_Id) {
             this.players[playerId].hasCulture = true;
         }
+        if (token.type_arg == Education_Progress_Type_Id) {
+            this.players[playerId].hasEducation = true;
+        }
 
         // Increment total progress tokens
         this.players[playerId].totalProgressTokens++;
@@ -275,6 +279,10 @@ var pythia = {
                         pointsWorth = 8;
                     }
                     break;
+            }
+
+            if (mainPlayer.hasEducation) {
+                pointsWorth += 2;
             }
 
             // Render progress worth
