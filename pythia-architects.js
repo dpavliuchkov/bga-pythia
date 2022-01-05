@@ -3,7 +3,7 @@
 // @description  Visual aid that extends BGA game interface with useful information
 // @namespace    https://github.com/dpavliuchkov/bga-pythia
 // @author       https://github.com/dpavliuchkov
-// @version      1.2.5
+// @version      1.2.6
 // @license      MIT
 // @include      *boardgamearena.com/*
 // @grant        none
@@ -18,6 +18,7 @@ const BGA_Player_Score_Main_Id_Prefix = "playerarea_";
 const BGA_Progress_Id_Prefix = "pg_";
 const Player_Score_Right_Id_Prefix = "pythia_score_right_";
 const Player_Score_Main_Id_Prefix = "pythia_score_main_";
+const Progress_Worth_Id_Prefix = "pythia_progress_worth_";
 const Player_Score_Span_Class = "player_score_value";
 const Player_Leader_Class = "pythia_leader";
 const Progress_Worth_Class = "progress_worth";
@@ -79,7 +80,7 @@ var pythia = {
         const keys = Object.keys(this.game.players);
         for (const playerId of keys) {
             this.players[playerId] = {
-                score: 0,
+                bgaScore: 0,
                 wonderStages: 0,
                 totalCatCards: 0,
                 totalWarVictories: 0,
@@ -120,10 +121,13 @@ var pythia = {
         }
 
         const playerId = data.args.player_id;
-        const score = data.args.score;
-        this.players[playerId].score = score;
-        this.renderPlayerScore(playerId, score);
-        this.renderLeader();
+        this.players[playerId].bgaScore = data.args.score;
+
+        const totalScore = this.getPlayerScore(playerId);
+        this.renderPlayerScore(playerId, totalScore);
+
+        const leaderId = this.getLeader();
+        this.renderLeader(leaderId);
     },
 
     // Record which card a player got
@@ -146,7 +150,7 @@ var pythia = {
 
         // Update score values for progress tokens
         if (playerObjectChanged && playerId == this.mainPlayerId) {
-            this.renderProgressWorth();
+            this.updateAllProgressWorth();
         }
     },
 
@@ -161,6 +165,11 @@ var pythia = {
 
         const playerId = data.args.player_id;
         this.players[playerId].wonderStages++; // increase a counter of built wonder stages
+
+        // 5th wonder stage means the game is over
+        if (this.players[playerId].wonderStages == 5) {
+            this.isFinished = true;
+        }
     },
 
     // Record which progress a player got
@@ -197,9 +206,12 @@ var pythia = {
         // Remove this token from the open list
         delete this.progressTokens[token.id];
 
+        // Remove progress worth container
+        this.dojo.destroy(Progress_Worth_Id_Prefix + token.id);
+
         // Update score values for progress tokens
         if (playerId == this.mainPlayerId) {
-            this.renderProgressWorth();
+            this.updateAllProgressWorth();
         }
     },
 
@@ -219,7 +231,7 @@ var pythia = {
         }
 
         // Update score values for progress tokens
-        this.renderProgressWorth();
+        this.updateAllProgressWorth();
     },
 
     // Record which new progress token was shown
@@ -236,75 +248,47 @@ var pythia = {
         this.progressTokens[token.id] = token.type_arg;
 
         // Update score values for progress tokens
-        this.renderProgressWorth();
+        const progressWorth = this.getProgressWorth(token.type_arg, this.mainPlayerId);
+        this.renderProgressWorth(token.id, progressWorth);
     },
 
     // Record that the game has ended
     recordVictory: function(data) {
         if (Enable_Logging) console.log("PYTHIA: game has finished - I got", data);
+
+        // Input check
+        if (!data || !data.args || !data.args.score) {
+            return;
+        }
+
         this.isFinished = true;
+        const finalScores = data.args.score;
+
+        const keys = Object.keys(finalScores);
+        for (const playerId of keys) {
+           this.renderPlayerScore(playerId, finalScores[playerId].total);
+        }
+
+        const leaderId = this.getLeader();
+        this.renderLeader(leaderId);
     },
 
-    renderProgressWorth: function() {
-        const mainPlayer = this.players[this.mainPlayerId];
+    renderProgressWorth: function(progressId, worth = 0) {
+        // Clean previous value
+        this.dojo.destroy(Progress_Worth_Id_Prefix + progressId);
 
-        // Clean previous values
-        this.dojo.query("." + Progress_Worth_Class).forEach(this.dojo.destroy);
-
-        // Calculate progress worth in points
-        for (var i in this.progressTokens) {
-            const token = parseInt(this.progressTokens[i]);
-            var pointsWorth = 0;
-
-            switch (token) {
-                case Politics_Progress_Type_Id:
-                    pointsWorth = mainPlayer.totalCatCards;
-                    break;
-
-                case Decor_Progress_Type_Id:
-                    pointsWorth = Decor_Points;
-                    break;
-
-                case Strategy_Progress_Type_Id:
-                    pointsWorth = mainPlayer.totalWarVictories;
-                    break;
-
-                case Education_Progress_Type_Id:
-                    pointsWorth = 2 + mainPlayer.totalProgressTokens * 2;
-                    break;
-
-                case Culture_Progress_Type_Id:
-                    pointsWorth = 4;
-                    if (mainPlayer.hasCulture) {
-                        pointsWorth = 8;
-                    }
-                    break;
-            }
-
-            if (mainPlayer.hasEducation) {
-                pointsWorth += 2;
-            }
-
-            // Render progress worth
-            var progressToken = this.dojo.byId(BGA_Progress_Id_Prefix + i);
-            if (progressToken && !this.isFinished) {
-                this.dojo.place(
-                    "<span class='" + Progress_Worth_Class + "'>⭐" + pointsWorth + "</span>",
-                    progressToken,
-                    "first");
-            }
-        }
+        // Render progress worth
+        this.dojo.place(
+            "<span id='" + Progress_Worth_Id_Prefix + progressId + "'" +
+                " class='" + Progress_Worth_Class + "'>⭐" + worth + "</span>",
+            BGA_Progress_Id_Prefix + progressId,
+            "first");
     },
 
     // Update total player score
     renderPlayerScore: function(playerId, score = 0) {
         var playerScore = this.dojo.byId(Player_Score_Main_Id_Prefix + playerId);
         if (playerScore) {
-            if (!this.isFinished) {
-                if (this.players[playerId].hasDecor) {
-                    score += Decor_Points;
-                }
-            }
             this.dojo.query("#" + Player_Score_Main_Id_Prefix + playerId)[0]
                 .innerHTML = "⭐" + score;
             this.dojo.query("#" + Player_Score_Right_Id_Prefix + playerId)[0]
@@ -313,27 +297,13 @@ var pythia = {
     },
 
     // Add border and position of the leader player
-    renderLeader: function() {
+    renderLeader: function(leaderId) {
         // Clean previous leader
         this.dojo.query("." + Player_Leader_Class).removeClass(Player_Leader_Class);
 
-        // Find leader
-        var totalScores = [];
-        const keys = Object.keys(this.players);
-        for (const playerId of keys) {
-            totalScores.push(
-                [playerId,
-                    this.players[playerId].score,
-                    this.players[playerId].wonderStages
-                ]);
-        }
-        totalScores.sort(function(a, b) {
-            return b[1] - a[1] || b[2] - a[2];;
-        });
-
         // Mark new leader
-        this.dojo.addClass(BGA_Player_Scoreboard_Id_Prefix + totalScores[0][0], Player_Leader_Class);
-        this.dojo.addClass(BGA_Player_Score_Main_Id_Prefix + totalScores[0][0], Player_Leader_Class);
+        this.dojo.addClass(BGA_Player_Scoreboard_Id_Prefix + leaderId, Player_Leader_Class);
+        this.dojo.addClass(BGA_Player_Score_Main_Id_Prefix + leaderId, Player_Leader_Class);
     },
 
     // Render player containers
@@ -355,10 +325,10 @@ var pythia = {
         }
     },
 
+    // Called at the game start to detect which progress tokens were drawn
     initProgressTokens: function() {
         const tokens = this.dojo.query("#science .progress");
-        for (var i in tokens) {
-            const token = tokens[i];
+        for (const token of tokens) {
             if (!token.style || !token.id) {
                 continue;
             }
@@ -372,32 +342,104 @@ var pythia = {
             const posX = Math.abs(parseInt(token.style.backgroundPositionX) / 100);
             const posY = Math.abs(parseInt(token.style.backgroundPositionY) / 100);
 
+            var tokenType;
             // Relevant tokens
             if (posY == 0 && posX == 2) {
-                this.progressTokens[tokenId] = Politics_Progress_Type_Id;
-                continue;
+                tokenType = Politics_Progress_Type_Id;
+            } else if (posY == 1 && posX == 2) {
+                tokenType = Decor_Progress_Type_Id;
+            } else if (posY == 2 && posX == 0) {
+                tokenType = Strategy_Progress_Type_Id;
+            } else if (posY == 3 && posX == 0) {
+                tokenType = Education_Progress_Type_Id;
+            } else if (posY == 3 && posX == 1) {
+                tokenType = Culture_Progress_Type_Id;
+            } else {
+                // Not relevant token
+                tokenType = 0;
             }
-            if (posY == 1 && posX == 2) {
-                this.progressTokens[tokenId] = Decor_Progress_Type_Id;
-                continue;
-            }
-            if (posY == 2 && posX == 0) {
-                this.progressTokens[tokenId] = Strategy_Progress_Type_Id;
-                continue;
-            }
-            if (posY == 3 && posX == 0) {
-                this.progressTokens[tokenId] = Education_Progress_Type_Id;
-                continue;
-            }
-            if (posY == 3 && posX == 1) {
-                this.progressTokens[tokenId] = Culture_Progress_Type_Id;
-                continue;
-            }
-            // Not relevant token
-            this.progressTokens[tokenId] = 0;
+
+            this.progressTokens[tokenId] = tokenType;
+            const progressWorth = this.getProgressWorth(tokenType, this.mainPlayerId);
+            this.renderProgressWorth(tokenId, progressWorth);
+        }
+    },
+
+    // Update worth of all visible progress tokens
+    updateAllProgressWorth: function() {
+        for (var tokenId in this.progressTokens) {
+            const tokenType = this.progressTokens[tokenId];
+            const progressWorth = this.getProgressWorth(tokenType, this.mainPlayerId);
+            this.renderProgressWorth(tokenId, progressWorth);
+        }
+    },
+
+    // Calculate how much this progress is worth for this player
+    getProgressWorth: function(tokenType, playerId) {
+        const player = this.players[playerId];
+        var pointsWorth = 0;
+
+        switch (parseInt(tokenType)) {
+            case Politics_Progress_Type_Id:
+                pointsWorth = player.totalCatCards;
+                break;
+
+            case Decor_Progress_Type_Id:
+                pointsWorth = Decor_Points;
+                break;
+
+            case Strategy_Progress_Type_Id:
+                pointsWorth = player.totalWarVictories;
+                break;
+
+            case Education_Progress_Type_Id:
+                pointsWorth = 2 + player.totalProgressTokens * 2;
+                break;
+
+            case Culture_Progress_Type_Id:
+                pointsWorth = 4;
+                if (player.hasCulture) {
+                    pointsWorth = 8;
+                }
+                break;
         }
 
-        this.renderProgressWorth();
+        if (player.hasEducation) {
+            pointsWorth += 2;
+        }
+
+        return pointsWorth;
+    },
+
+    // Get total player score at teh current moment of game
+    getPlayerScore: function(playerId) {
+        const player = this.players[playerId];
+        var totalScore = player.bgaScore;
+
+        // If game not finished - add 4 points for decor progress
+        if (!this.isFinished && player.hasDecor) {
+            totalScore += Decor_Points;
+        }
+        return totalScore;
+    },
+
+    // Calculate who is the current leader
+    getLeader: function() {
+        // Find leader
+        var totalScores = [];
+        const keys = Object.keys(this.players);
+        for (const playerId of keys) {
+            totalScores.push(
+                [playerId,
+                    this.getPlayerScore(playerId),
+                    this.players[playerId].wonderStages
+                ]);
+        }
+        totalScores.sort(function(a, b) {
+            return b[1] - a[1] || b[2] - a[2];
+        });
+
+        return totalScores[0][0];
     },
 
     // Set Pythia CSS styles
@@ -423,8 +465,6 @@ function isObjectEmpty(object) {
     return typeof(object) == "undefined" ||
         (Object.keys(object).length === 0 && object.constructor === Object);
 }
-
-// Everything starts here
 
 // Everything starts here
 var onload = async function() {
