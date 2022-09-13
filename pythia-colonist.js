@@ -3,7 +3,7 @@
 // @description  Visual aid that extends Colonist game interface with useful information
 // @namespace    https://github.com/dpavliuchkov/colonist
 // @author       https://github.com/dpavliuchkov
-// @version      1.0.0
+// @version      1.0.1
 // @license      MIT
 // @include      *colonist.io/*
 // @require      https://code.jquery.com/jquery-3.6.0.min.js
@@ -235,7 +235,7 @@ var pythia = {
 
     // Add new palyer to the array
     addPlayer: function(name, color) {
-        if (name == "Bot" || name == "You" || name == "Reconnecting" || name == "No") return;
+        if (!name || name == "Bot" || name == "You" || name == "Reconnecting" || name == "No" || name == "Friendly" || name == "Karma") return;
 
         this.players[name] = {
             lumber: 0,
