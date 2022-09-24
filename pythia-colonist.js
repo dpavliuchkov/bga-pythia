@@ -3,7 +3,7 @@
 // @description  Visual aid that extends Colonist game interface with useful information
 // @namespace    https://github.com/dpavliuchkov/colonist
 // @author       https://github.com/dpavliuchkov
-// @version      1.0.2
+// @version      1.1.0
 // @license      MIT
 // @include      *colonist.io/*
 // @require      https://code.jquery.com/jquery-3.6.0.min.js
@@ -16,6 +16,7 @@ const Enable_Logging = false;
 var pythia = {
     isStarted: false,
     isFinished: false,
+    isPlayersReordered: false,
     players: [],
     mainPlayer: "",
     previousLog: "",
@@ -71,8 +72,6 @@ var pythia = {
             switch (action) {
                 case "placed":
                     break;
-                case "rolled":
-                    break;
                 case "used":
                     break;
                 case "moved":
@@ -82,6 +81,20 @@ var pythia = {
                 case "is":
                     break;
                 case "has":
+                    break;
+
+                // Reorder player containers to mathc player order
+                case "rolled":
+                    var lastPlayer;
+                    debugger;
+                    while (!this.isPlayersReordered) {
+                        lastPlayer = $("#pythia-container div:last-child");
+                        if (lastPlayer.hasClass("pythia-mainplayer")) {
+                            this.isPlayersReordered = true;
+                        } else {
+                            $("#pythia-container").prepend(lastPlayer);
+                        }
+                    }
                     break;
 
                 case "got":
@@ -216,7 +229,7 @@ var pythia = {
                         if (parts[2].alt == "card") {
                             this.removeResource(source, "stolen");
                         } else {
-                            this.addResource(source, parts[2].alt);
+                            this.removeResource(source, parts[2].alt);
                         }
 
                     }
@@ -242,7 +255,7 @@ var pythia = {
     addPlayer: function(name, color) {
         if (!name || ["Bot", "Reconnecting", "No", "Friendly", "Karma"].includes(name)) return;
 
-        if (name == "You") {
+        if (name.toLowerCase() == "you") {
             name = this.mainPlayer;
         }
 
@@ -265,11 +278,17 @@ var pythia = {
 
     // Add a resource to the player
     addResource: function(playerName, resource) {
+        if (playerName.toLowerCase() == "you") {
+            playerName = this.mainPlayer;
+        }
         this.players[playerName][resource]++;
     },
 
     // Remove a resource from the player, respect unknown resources
     removeResource: function(playerName, resource) {
+        if (playerName.toLowerCase() == "you") {
+            playerName = this.mainPlayer;
+        }
         const player = this.players[playerName];
 
         // Remove a common resource
@@ -294,6 +313,9 @@ var pythia = {
 
     // Balance robbed cards if possible
     balanceStolenResources: function(playerName) {
+        if (playerName.toLowerCase() == "you") {
+            playerName = this.mainPlayer;
+        }
         const player = this.players[playerName];
 
         // Check if we are net zero across all resources
@@ -345,12 +367,19 @@ var pythia = {
 
     // Remove all resources of a particualr kind
     resetResource: function(playerName, resource) {
+        if (playerName.toLowerCase() == "you") {
+            playerName = this.mainPlayer;
+        }
         this.players[playerName][resource] = 0;
     },
 
     // Render player containers
     renderPlayerContainers: function(playerName, color) {
         $("#pythia-container").append("<div id='pythia-" + playerName + "' style='background-color:" + color + "'></div>");
+
+        if (playerName == this.mainPlayer) {
+            $("#pythia-" + playerName).addClass("pythia-mainplayer");
+        }
     },
 
     // Render player containers with new values
@@ -390,8 +419,11 @@ var pythia = {
             ".pythia-player-resource { margin-left: 10px; width: 55px; display: inline-block; text-align: right; }" +
             ".pythia-player-resource img { margin-left: 2px; margin-top: -3px; }" +
             ".pythia-stolen img { filter: invert(1); }" +
+            ".in_game_ab_right, .in_game_ab_left { display: none ! important; }" +
             "</style>"
         );
+
+        $(".main_container_block_ads_included").removeClass("main_container_block_ads_included");
     }
 };
 
